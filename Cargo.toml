@@ -1,0 +1,99 @@
+[package]
+name = "api"
+version = "0.1.0"
+authors = [
+  "The Chalmers Developers <developer@misterchalmers.ca>",
+  "Steven Xie <dev@stevenxie.me>",
+]
+edition = "2018"
+default-run = "api"
+
+
+[dependencies]
+anyhow = "1"
+async_trait = { package = "async-trait", version = "0.1" }
+base64 = "0.13"
+builder = { package = "derive_builder", version = "0.9" }
+cache_control = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "3.0.0-beta.2", features = ["color"] }
+derive = { package = "derive_more", version = "0.99" }
+diesel_migrations = "1"
+dotenv = "0.15"
+errors = { package = "thiserror", version = "1" }
+futures = { package = "futures-core", version = "0.3" }
+futures_util = { package = "futures-util", version = "0.3" }
+graphql_warp = { package = "async-graphql-warp", version = "2" }
+http = "0.2"
+json = { package = "serde_json", version = "1" }
+jwt = { package = "jsonwebtoken", version = "7" }
+phonenumber = "0.3"
+plain = { package = "serde_plain", version = "0.3" }
+lazy_static = "1"
+log = "0.4"
+logger = { package = "pretty_env_logger", version = "0.4" }
+mailchecker = "3"
+number = { package = "num-traits", version = "0.2" }
+regex = "1"
+serde = "1"
+tide = "0.15"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "time", "sync"] }
+tokio_compat = { package = "tokio-compat-02", version = "0.1" }
+uuid = { version = "0.8", features = ["v4"] }
+warp = "0.2"
+
+[dependencies.diesel]
+version = "1"
+default-features = false
+features = [
+  "32-column-tables",
+  "r2d2",
+  "postgres",
+  "uuidv07",
+  "numeric",
+  "chrono",
+  "serde_json",
+]
+
+[dependencies.graphql]
+package = "async-graphql"
+version = "2"
+default-features = false
+features = ["uuid", "chrono", "apollo_tracing"]
+
+[dependencies.request]
+package = "reqwest"
+version = "0.10"
+default-features = false
+features = ["rustls-tls"]
+
+[dependencies.sentry]
+version = "0.20"
+default-features = false
+features = [
+  "anyhow",
+  "backtrace",
+  "contexts",
+  "log",
+  "env_logger",
+  "panic",
+  "transport",
+]
+
+
+[build-dependencies]
+anyhow = "1"
+chrono = "0.4"
+git = { package = "git2", version = "0.13" }
+semver = "0.11"
+
+[build-dependencies.cargo-husky]
+version = "1"
+default-features = false
+features = [
+  "precommit-hook",
+  "run-for-all",
+  "run-cargo-check",
+  "run-cargo-clippy",
+  "run-cargo-fmt",
+]
