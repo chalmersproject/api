@@ -17,6 +17,9 @@ COPY --chown=rust:rust .git/ .git/
 COPY --chown=rust:rust src/ src/
 COPY --chown=rust:rust build.rs ./
 
+# Copy assets:
+COPY --chown=rust:rust migrations/ migrations/
+
 # Build binaries:
 ENV BUILD_VERSION_DIRTY_SUFFIX=""
 RUN cargo build --release --target x86_64-unknown-linux-musl && \
