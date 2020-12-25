@@ -51,7 +51,7 @@ impl From<UserRepr> for User {
             first_name,
             last_name,
 
-            about: about,
+            about,
             email: email.map(Into::into),
             phone: phone.map(Into::into),
 

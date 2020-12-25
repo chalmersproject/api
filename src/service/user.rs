@@ -10,9 +10,9 @@ pub struct User {
 
     pub firebase_id: String,
     pub slug: Slug,
-
     pub first_name: String,
     pub last_name: String,
+
     pub about: Option<String>,
     pub email: Option<Email>,
     pub phone: Option<Phone>,
@@ -110,7 +110,7 @@ impl Service {
             model.try_into().context("failed to convert user model")?
         };
 
-        let response = GetUserByFirebaseIdResponse { user: user.into() };
+        let response = GetUserByFirebaseIdResponse { user };
         Ok(response)
     }
 
@@ -141,9 +141,9 @@ impl Service {
 
             firebase_id,
             slug: Slug::new(),
-
             first_name: first_name.into(),
             last_name: last_name.into(),
+
             about: about.map(Into::into),
             email,
             phone: None,

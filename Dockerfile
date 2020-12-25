@@ -38,6 +38,7 @@ ENV CMD=api
 COPY --from=builder /out/${CMD} /usr/local/bin/${CMD}
 
 # Configure ports:
+ENV API_HOST=0.0.0.0
 ENV API_PORT=80
 EXPOSE $API_PORT
 

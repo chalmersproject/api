@@ -26,7 +26,7 @@ impl Query {
     async fn viewer(&self, ctx: &Context<'_>) -> FieldResult<Option<User>> {
         // If not authenticated, return None.
         let auth = match ctx.data_opt::<AuthInfo>() {
-            Some(auth) => auth.clone(),
+            Some(auth) => auth,
             None => return Ok(None),
         };
 

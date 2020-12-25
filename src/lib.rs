@@ -11,6 +11,7 @@ mod prelude {
     pub use std::convert::{TryFrom, TryInto};
     pub use std::fmt::{Display, Formatter};
     pub use std::fmt::{Error as FmtError, Result as FmtResult};
+    pub use std::hash::{Hash, Hasher};
     pub use std::str::FromStr;
     pub use std::sync::{Arc, Mutex};
 
@@ -38,6 +39,7 @@ mod prelude {
     pub use number::*;
     pub use regex::Regex;
     pub use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    pub use url::Url;
     pub use uuid::Uuid;
 
     #[allow(dead_code)]

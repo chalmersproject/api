@@ -140,6 +140,7 @@ dependencies = [
  "tide",
  "tokio 1.0.0",
  "tokio-compat-02",
+ "url",
  "uuid",
  "warp",
 ]
