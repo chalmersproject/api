@@ -29,17 +29,16 @@ impl From<UserRepr> for User {
 
             firebase_id,
             slug,
-
             first_name,
             last_name,
-            about,
 
+            about,
             email,
-            is_email_verified,
             phone,
-            is_phone_verified,
 
             is_admin,
+            is_email_verified,
+            is_phone_verified,
         } = user;
 
         Self {
@@ -49,17 +48,16 @@ impl From<UserRepr> for User {
 
             firebase_id,
             slug: slug.into(),
+            first_name,
+            last_name,
 
-            first_name: first_name.into(),
-            last_name: last_name.into(),
-            about: about.map(Into::into),
-
+            about: about,
             email: email.map(Into::into),
-            is_email_verified,
             phone: phone.map(Into::into),
-            is_phone_verified,
 
             is_admin,
+            is_email_verified,
+            is_phone_verified,
         }
     }
 }
@@ -91,29 +89,21 @@ impl TryFrom<User> for UserRepr {
 
             firebase_id,
             slug: slug.try_into().context("failed to convert slug")?,
+            first_name,
+            last_name,
 
-            first_name: first_name
-                .try_into()
-                .context("failed to convert first name")?,
-            last_name: last_name
-                .try_into()
-                .context("failed to convert last name")?,
-            about: about
-                .map(TryInto::try_into)
-                .transpose()
-                .context("failed to convert last name")?,
-
+            about,
             email: email
                 .map(TryInto::try_into)
                 .transpose()
                 .context("failed to convert email")?,
-            is_email_verified,
             phone: phone
                 .map(TryInto::try_into)
                 .transpose()
                 .context("failed to convert phone")?,
-            is_phone_verified,
 
+            is_email_verified,
+            is_phone_verified,
             is_admin,
         };
         Ok(user)
