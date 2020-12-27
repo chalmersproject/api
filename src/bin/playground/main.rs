@@ -53,31 +53,35 @@ pub fn main() -> Result<()> {
 
     let runtime = Runtime::new().context("failed to initialize runtime")?;
     runtime.block_on(async move {
-        let user = {
+        let request = {
             let firebase_id = "fake-firebase-id";
             let first_name = "Steven";
             let last_name = "Xie";
-            let email = "steven.xie@outlook.com";
+            let email = "email@example.com";
+            let phone = "+1 (905) 666-7323";
             let is_admin = true;
-            service
-                .create_user(CreateUserRequest {
-                    firebase_id: firebase_id.to_owned(),
+            CreateUserRequest {
+                firebase_id: firebase_id.to_owned(),
 
-                    first_name: first_name
-                        .parse()
-                        .context("invalid first name")?,
-                    last_name: last_name
-                        .parse()
-                        .context("invalid last name")?,
-                    about: None,
-                    email: Some(email.parse().context("invalid email")?),
-
-                    is_admin,
-                    is_email_verified: false,
-                })
-                .await
-                .context("failed to create user")?
+                first_name: first_name.parse().context("invalid first name")?,
+                last_name: last_name.parse().context("invalid last name")?,
+                about: None,
+                email: Some(Verifiable::Unverified(
+                    email.parse().context("invalid email address")?,
+                )),
+                phone: Some(Verifiable::Unverified(
+                    phone.parse().context("invalid phone number")?,
+                )),
+                is_admin,
+            }
         };
+
+        let response = service
+            .create_user(request)
+            .await
+            .context("failed to create user")?;
+
+        let CreateUserResponse { user } = response;
         println!("Created user: {:#?}", &user);
 
         Ok(())

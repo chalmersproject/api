@@ -25,9 +25,10 @@ mod prelude {
     pub use plain::to_string as to_plain_string;
     pub use plain::Error as SerdePlainError;
 
-    pub use json::from_str as from_json_str;
-    pub use json::to_string as to_json_string;
+    pub use json::from_value as from_json_value;
+    pub use json::to_value as to_json_value;
     pub use json::Error as SerdeJsonError;
+    pub use json::Number as JsonNumber;
     pub use json::Value as JsonValue;
 
     pub use async_trait::async_trait;

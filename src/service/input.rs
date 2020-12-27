@@ -10,6 +10,14 @@ impl InputString {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    pub fn discard_empty(self) -> Option<InputString> {
+        if !self.is_empty() {
+            Some(self)
+        } else {
+            None
+        }
+    }
 }
 
 impl TryFrom<String> for InputString {

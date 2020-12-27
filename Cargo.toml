@@ -23,6 +23,7 @@ dotenv = "0.15"
 errors = { package = "thiserror", version = "1" }
 futures = { package = "futures-core", version = "0.3" }
 futures_util = { package = "futures-util", version = "0.3" }
+geo = { version = "0.16", features = ["use-serde"] }
 graphql_warp = { package = "async-graphql-warp", version = "2" }
 http = "0.2"
 json = { package = "serde_json", version = "1" }

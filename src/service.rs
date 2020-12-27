@@ -13,6 +13,7 @@ mod prelude {
     pub use diesel::delete as delete_from;
     pub use diesel::insert_into;
     pub use diesel::prelude::*;
+    pub use diesel::update;
 
     pub use tokio::task::spawn_blocking;
 }
@@ -20,8 +21,14 @@ mod prelude {
 mod meta;
 pub use self::meta::*;
 
+mod verifiable;
+pub use verifiable::*;
+
 mod slug;
 pub use slug::*;
+
+mod input;
+pub use input::*;
 
 mod email;
 pub use email::*;
@@ -29,11 +36,20 @@ pub use email::*;
 mod phone;
 pub use phone::*;
 
-mod input;
-pub use input::*;
-
 mod user;
 pub use user::*;
+
+mod address;
+pub use address::*;
+
+mod geo;
+pub use self::geo::*;
+
+mod shelter;
+pub use shelter::*;
+
+mod shelter_occupancy;
+pub use shelter_occupancy::*;
 
 use crate::db::PgPool;
 use crate::prelude::*;

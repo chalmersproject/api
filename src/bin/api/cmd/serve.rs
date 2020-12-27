@@ -6,7 +6,7 @@ use api::routes::healthz::healthz as healthz_route;
 use api::routes::recover;
 
 use api::graphql::extensions::Logging as LoggingExtension;
-use api::graphql::Query;
+use api::graphql::{Mutation, Query};
 
 use api::auth::FirebaseVerifier;
 use api::service::Service;
@@ -27,7 +27,7 @@ use std::net::ToSocketAddrs;
 use std::sync::Arc;
 
 use graphql::extensions::ApolloTracing as TracingExtension;
-use graphql::{EmptyMutation, EmptySubscription, Schema};
+use graphql::{EmptySubscription, Schema};
 
 macro_rules! info {
     ($($arg:tt)+) => (
@@ -106,7 +106,8 @@ pub struct ServeCli {
     pub firebase_project_id: String,
 }
 
-pub fn serve(context: &Context, cli: ServeCli) -> Result<()> {
+pub fn serve(ctx: Context, cli: ServeCli) -> Result<()> {
+    let Context { build } = ctx;
     let database = {
         let ServeCli {
             database_url: url,
@@ -120,11 +121,10 @@ pub fn serve(context: &Context, cli: ServeCli) -> Result<()> {
         .database(database)
         .build()
         .context("failed to initialize service")?;
-    let build = context.build.to_owned();
 
     let schema = {
         let query = Query::new();
-        let mutation = EmptyMutation;
+        let mutation = Mutation::new();
         let subscription = EmptySubscription;
 
         let mut schema = Schema::build(query, mutation, subscription)

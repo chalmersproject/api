@@ -63,8 +63,8 @@ impl Display for Id {
     }
 }
 
+/// An `ID` is a globally unique object identifier.
 #[Scalar(name = "ID")]
-/// A globally unique object ID.
 impl ScalarType for Id {
     fn parse(value: Value) -> InputValueResult<Self> {
         let data = if let Value::String(data) = value {

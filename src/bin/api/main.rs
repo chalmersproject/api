@@ -14,16 +14,18 @@ mod cmd;
 mod ctx;
 mod db;
 
-use logger::init as init_logger;
-use prelude::*;
-use sentry::init as init_sentry;
+use api::env::load as load_env;
+use api::meta::BuildInfo;
 
-use api::{env::load as load_env, meta::BuildInfo};
-use cmd::*;
-use std::env::set_var as set_env_var;
+use logger::init as init_logger;
+use sentry::init as init_sentry;
 
 use chrono::DateTime;
 use clap::AppSettings;
+use std::env::set_var as set_env_var;
+
+use cmd::*;
+use prelude::*;
 
 #[derive(Debug, Clap)]
 #[clap(about = "The API backend for the Chalmers Project")]
@@ -77,7 +79,7 @@ fn main() -> Result<()> {
         "" => None,
         version => Some(version.to_owned()),
     };
-    let context = Context {
+    let ctx = Context {
         build: BuildInfo {
             timestamp: timestamp.into(),
             version,
@@ -87,7 +89,7 @@ fn main() -> Result<()> {
     // Configure logger.
     set_env_var("RUST_LOG", &cli.log);
     init_logger();
-    if let Some(version) = &context.build.version {
+    if let Some(version) = &ctx.build.version {
         debug!("starting up (version: {})", version);
     } else {
         debug!("starting up");
@@ -96,7 +98,7 @@ fn main() -> Result<()> {
     // Run command.
     use Command::*;
     match cli.cmd {
-        Serve(cli) => serve(&context, cli),
-        Migrate(cli) => migrate(&context, cli),
+        Serve(cli) => serve(ctx, cli),
+        Migrate(cli) => migrate(ctx, cli),
     }
 }

@@ -19,3 +19,9 @@ mod prelude {
 
 pub mod user;
 pub use user::*;
+
+pub mod shelter;
+pub use shelter::*;
+
+pub mod shelter_occupancy;
+pub use shelter_occupancy::*;

@@ -34,3 +34,15 @@ impl FromStr for Email {
         Self::try_from(s.to_owned())
     }
 }
+
+impl From<Verifiable<Email>> for Email {
+    fn from(email: Verifiable<Email>) -> Self {
+        email.into_inner()
+    }
+}
+
+impl From<Verifiable<Email>> for String {
+    fn from(email: Verifiable<Email>) -> Self {
+        email.into_inner().into()
+    }
+}

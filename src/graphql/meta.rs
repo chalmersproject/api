@@ -14,3 +14,7 @@ impl From<BuildInfo> for Build {
         Build { timestamp, version }
     }
 }
+
+pub fn get_service<'a>(ctx: &'a Context<'_>) -> &'a Service {
+    ctx.data_unchecked()
+}

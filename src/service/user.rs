@@ -14,12 +14,10 @@ pub struct User {
     pub last_name: String,
 
     pub about: Option<String>,
-    pub email: Option<Email>,
-    pub phone: Option<Phone>,
+    pub email: Option<Verifiable<Email>>,
+    pub phone: Option<Verifiable<Phone>>,
 
     pub is_admin: bool,
-    pub is_email_verified: bool,
-    pub is_phone_verified: bool,
 }
 
 impl User {
@@ -35,7 +33,7 @@ pub struct GetUserRequest {
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct GetUserResponse {
-    pub user: User,
+    pub user: Option<User>,
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
@@ -45,7 +43,7 @@ pub struct GetUserByFirebaseIdRequest {
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct GetUserByFirebaseIdResponse {
-    pub user: User,
+    pub user: Option<User>,
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
@@ -54,14 +52,14 @@ pub struct CreateUserRequest {
     pub first_name: InputString,
     pub last_name: InputString,
     pub about: Option<InputString>,
-    pub email: Option<Email>,
+    pub email: Option<Verifiable<Email>>,
+    pub phone: Option<Verifiable<Phone>>,
     pub is_admin: bool,
-    pub is_email_verified: bool,
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct CreateUserResponse {
-    user: User,
+    pub user: User,
 }
 
 impl Service {
@@ -69,20 +67,25 @@ impl Service {
         &self,
         request: GetUserRequest,
     ) -> Result<GetUserResponse> {
-        let user: User = {
+        let GetUserRequest { user_id } = request;
+
+        let user: Option<User> = {
             let pool = self.database.clone();
-            let GetUserRequest { user_id } = request;
-            let model = spawn_blocking(move || -> Result<UserModel> {
+            let model = spawn_blocking(move || -> Result<Option<UserModel>> {
                 use schema::users;
                 let conn = pool.get().context("database connection failure")?;
                 users::table
                     .find(user_id)
                     .first(&conn)
+                    .optional()
                     .context("failed to load user model")
             })
             .await
             .unwrap()?;
-            model.try_into().context("failed to convert user model")?
+            model
+                .map(TryInto::try_into)
+                .transpose()
+                .context("failed to decode user model")?
         };
 
         let response = GetUserResponse { user };
@@ -94,20 +97,24 @@ impl Service {
         request: GetUserByFirebaseIdRequest,
     ) -> Result<GetUserByFirebaseIdResponse> {
         let GetUserByFirebaseIdRequest { firebase_id } = request;
-        let user: User = {
+
+        let user: Option<User> = {
             let pool = self.database.clone();
-            let firebase_id = firebase_id;
-            let model = spawn_blocking(move || -> Result<UserModel> {
+            let model = spawn_blocking(move || -> Result<Option<UserModel>> {
                 use schema::users;
                 let conn = pool.get().context("database connection failure")?;
                 users::table
                     .filter(users::firebase_id.eq(firebase_id))
                     .first(&conn)
+                    .optional()
                     .context("failed to load user model")
             })
             .await
             .unwrap()?;
-            model.try_into().context("failed to convert user model")?
+            model
+                .map(TryInto::try_into)
+                .transpose()
+                .context("failed to decode user model")?
         };
 
         let response = GetUserByFirebaseIdResponse { user };
@@ -118,45 +125,44 @@ impl Service {
         &self,
         request: CreateUserRequest,
     ) -> Result<CreateUserResponse> {
-        let Meta {
-            id,
-            created_at,
-            updated_at,
-        } = Meta::new();
-
         let CreateUserRequest {
             firebase_id,
             first_name,
             last_name,
             about,
             email,
+            phone,
             is_admin,
-            is_email_verified,
         } = request;
 
-        let user = User {
-            id,
-            created_at,
-            updated_at,
+        let user = {
+            let Meta {
+                id,
+                created_at,
+                updated_at,
+            } = Meta::new();
 
-            firebase_id,
-            slug: Slug::new(),
-            first_name: first_name.into(),
-            last_name: last_name.into(),
+            User {
+                id,
+                created_at,
+                updated_at,
 
-            about: about.map(Into::into),
-            email,
-            phone: None,
+                firebase_id,
+                slug: Slug::new(),
+                first_name: first_name.into(),
+                last_name: last_name.into(),
 
-            is_admin,
-            is_email_verified,
-            is_phone_verified: false,
+                about: about.map(Into::into),
+                email,
+                phone,
+
+                is_admin,
+            }
         };
 
         {
             let pool = self.database.clone();
-            let user = user.clone();
-            let user = UserModel::from(user);
+            let user = UserModel::from(user.clone());
             spawn_blocking(move || -> Result<()> {
                 use crate::schema::users;
                 let conn = pool.get().context("database connection failure")?;

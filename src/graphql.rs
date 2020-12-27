@@ -13,7 +13,7 @@ mod prelude {
     pub use graphql::Result as FieldResult;
     pub use graphql::{Enum, EnumType};
     pub use graphql::{InputObject, MergedObject, Object, SimpleObject};
-    pub use graphql::{InputValueError, InputValueResult, Value};
+    pub use graphql::{InputValueError, InputValueResult, Number, Value};
     pub use graphql::{Scalar, ScalarType};
 
     // use graphql::connection::{Connection as GraphQLConnection, EmptyFields};
@@ -51,11 +51,26 @@ pub mod extensions;
 pub mod query;
 pub use query::*;
 
+pub mod mutation;
+pub use mutation::*;
+
 pub mod meta;
 pub use self::meta::*;
 
 pub mod id;
 pub use id::*;
 
+pub mod cursor;
+pub use cursor::*;
+
+pub mod geo;
+pub use self::geo::*;
+
+pub mod address;
+pub use address::*;
+
 pub mod user;
 pub use user::*;
+
+pub mod shelter;
+pub use shelter::*;

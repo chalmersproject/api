@@ -32,3 +32,15 @@ impl FromStr for Phone {
         Self::try_from(s.to_owned())
     }
 }
+
+impl From<Verifiable<Phone>> for Phone {
+    fn from(phone: Verifiable<Phone>) -> Self {
+        phone.into_inner()
+    }
+}
+
+impl From<Verifiable<Phone>> for String {
+    fn from(phone: Verifiable<Phone>) -> Self {
+        phone.into_inner().into()
+    }
+}

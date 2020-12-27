@@ -23,13 +23,13 @@ pub struct MigrateCli {
         hide_env_values = true
     )]
     #[clap(help_heading = Some("DATABASE"))]
-    pub db_url: String,
+    pub database_url: String,
 }
 
-pub fn migrate(_: &Context, cli: MigrateCli) -> Result<()> {
+pub fn migrate(_: Context, cli: MigrateCli) -> Result<()> {
     info!("connecting to database");
-    let conn =
-        PgConnection::establish(&cli.db_url).context("connect database")?;
+    let conn = PgConnection::establish(&cli.database_url)
+        .context("connect database")?;
     let mut shim = LoggerShim::with_line_writer();
     run_migrations_with_output(&conn, &mut shim)?;
     info!("done");
