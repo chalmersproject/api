@@ -15,20 +15,23 @@ lazy_static! {
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct Claims {
+pub struct AuthClaims {
     pub exp: u64,
     pub iat: u64,
     pub aud: String,
     pub iss: String,
     pub sub: String,
+    pub name: String,
     pub user_id: String,
+    pub email: String,
+    pub email_verified: bool,
 }
 
 #[derive(Debug)]
-pub struct AuthInfo(TokenData<Claims>);
+pub struct AuthInfo(TokenData<AuthClaims>);
 
 impl AuthInfo {
-    pub fn new(data: TokenData<Claims>) -> Self {
+    pub fn new(data: TokenData<AuthClaims>) -> Self {
         Self(data)
     }
 
@@ -36,13 +39,13 @@ impl AuthInfo {
         &self.0.header
     }
 
-    pub fn claims(&self) -> &Claims {
+    pub fn claims(&self) -> &AuthClaims {
         &self.0.claims
     }
 }
 
-impl From<TokenData<Claims>> for AuthInfo {
-    fn from(data: TokenData<Claims>) -> Self {
+impl From<TokenData<AuthClaims>> for AuthInfo {
+    fn from(data: TokenData<AuthClaims>) -> Self {
         Self::new(data)
     }
 }
@@ -99,7 +102,7 @@ impl Verifier for FirebaseVerifier {
                 .context("failed to load decoding keys")?
         };
         let key = keys.get(&kid).context("no matching decoding keys")?;
-        let data = decode_token::<Claims>(token, key, &validation)?;
+        let data = decode_token::<AuthClaims>(token, key, &validation)?;
 
         let iat = Utc.timestamp(
             data.claims

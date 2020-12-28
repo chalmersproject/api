@@ -16,13 +16,14 @@ pub struct Shelter {
     pub about: Option<String>,
     pub email: Option<String>,
     pub phone: String,
-    pub website: Option<String>,
+    pub website_url: Option<String>,
     pub address: JsonValue,
     pub location: JsonValue,
     pub spots: i32,
     pub beds: i32,
     pub food: String,
     pub tags: Vec<String>,
+    pub image_url: Option<String>,
 }
 
 impl TryFrom<ShelterRepr> for Shelter {
@@ -35,9 +36,10 @@ impl TryFrom<ShelterRepr> for Shelter {
             slug,
             name,
             about,
+            image_url,
             email,
             phone,
-            website,
+            website_url,
             address,
             location,
             spots,
@@ -58,9 +60,10 @@ impl TryFrom<ShelterRepr> for Shelter {
             slug: slug.into(),
             name,
             about,
+            image_url: image_url.map(|url| url.to_string()),
             email: email.map(Into::into),
             phone: phone.into(),
-            website: website.map(|url| url.to_string()),
+            website_url: website_url.map(|url| url.to_string()),
             address,
             location,
             spots: spots.into(),
@@ -86,43 +89,63 @@ impl TryFrom<Shelter> for ShelterRepr {
             about,
             email,
             phone,
-            website,
+            website_url,
             address,
             location,
             spots,
             beds,
             food,
             tags,
+            image_url,
         } = shelter;
+
+        let slug = slug.try_into().context("failed to parse slug")?;
+        let image_url = image_url
+            .map(|url| url.parse())
+            .transpose()
+            .context("failed to parse image URL")?;
+
+        let email = email
+            .map(TryInto::try_into)
+            .transpose()
+            .context("failed to parse email address")?;
+        let phone = phone.try_into().context("failed to parse phone number")?;
+
+        let website_url = website_url
+            .map(|url| url.parse())
+            .transpose()
+            .context("failed to parse website URL")?;
+        let address =
+            from_json_value(address).context("failed to decode address")?;
+        let location =
+            from_json_value(location).context("failed to decode location")?;
+
+        let spots = spots.try_into().context("failed to convert spot count")?;
+        let beds = beds.try_into().context("failed to convert bed count")?;
+        let food = food.parse().context("failed to parse food options")?;
+        let tags = tags
+            .into_iter()
+            .map(|tag| tag.parse())
+            .collect::<Result<_, SerdePlainError>>()
+            .context("failed to parse tags")?;
 
         let shelter = ShelterRepr {
             id,
             created_at,
             updated_at,
-            slug: slug.try_into().context("failed to parse slug")?,
+            slug,
             name,
             about,
-            email: email
-                .map(TryInto::try_into)
-                .transpose()
-                .context("failed to parse email address")?,
-            phone: phone.try_into().context("failed to parse phone number")?,
-            website: website
-                .map(|url| url.parse())
-                .transpose()
-                .context("failed to parse website URL")?,
-            address: from_json_value(address)
-                .context("failed to decode address")?,
-            location: from_json_value(location)
-                .context("failed to decode location")?,
-            spots: spots.try_into().context("failed to convert spot count")?,
-            beds: beds.try_into().context("failed to convert bed count")?,
-            food: food.parse().context("failed to parse food options")?,
-            tags: tags
-                .into_iter()
-                .map(|tag| tag.parse())
-                .collect::<Result<_, SerdePlainError>>()
-                .context("failed to parse tags")?,
+            image_url,
+            email,
+            phone,
+            website_url,
+            address,
+            location,
+            spots,
+            beds,
+            food,
+            tags,
         };
 
         Ok(shelter)

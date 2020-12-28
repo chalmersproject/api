@@ -12,10 +12,11 @@ pub struct Shelter {
     pub name: String,
 
     pub about: Option<String>,
+    pub image_url: Option<Url>,
     pub email: Option<Email>,
     pub phone: Phone,
 
-    pub website: Option<Url>,
+    pub website_url: Option<Url>,
     pub address: Address,
     pub location: Coordinate,
 
@@ -100,9 +101,10 @@ pub struct ListSheltersResponse {
 pub struct CreateShelterRequest {
     pub name: InputString,
     pub about: Option<InputString>,
+    pub image_url: Option<Url>,
     pub email: Option<Email>,
     pub phone: Phone,
-    pub website: Option<Url>,
+    pub website_url: Option<Url>,
     pub address: Address,
     pub location: Coordinate,
     pub spots: u16,
@@ -121,9 +123,10 @@ pub struct UpdateShelterRequest {
     pub shelter_id: Uuid,
     pub name: Option<InputString>,
     pub about: Option<InputString>,
+    pub image_url: Option<Url>,
     pub email: Option<Email>,
     pub phone: Option<Phone>,
-    pub website: Option<Url>,
+    pub website_url: Option<Url>,
     pub address: Option<Address>,
     pub location: Option<Coordinate>,
     pub spots: Option<u16>,
@@ -208,9 +211,10 @@ impl Service {
         let CreateShelterRequest {
             name,
             about,
+            image_url,
             email,
             phone,
-            website,
+            website_url,
             address,
             location,
             spots,
@@ -235,10 +239,11 @@ impl Service {
                 name: name.into(),
 
                 about: about.map(Into::into),
+                image_url,
                 email,
                 phone,
 
-                website,
+                website_url,
                 address,
                 location,
 
@@ -278,9 +283,10 @@ impl Service {
             shelter_id,
             name,
             about,
+            image_url,
             email,
             phone,
-            website,
+            website_url,
             address,
             location,
             spots,
@@ -307,8 +313,12 @@ impl Service {
         if let Some(name) = name {
             shelter.name = name.into();
         }
+
         if let Some(about) = about {
             shelter.about = about.discard_empty().map(Into::into);
+        }
+        if let Some(url) = image_url {
+            shelter.image_url = Some(url);
         }
         if let Some(email) = email {
             shelter.email = Some(email);
@@ -316,8 +326,9 @@ impl Service {
         if let Some(phone) = phone {
             shelter.phone = phone;
         }
-        if let Some(website) = website {
-            shelter.website = Some(website);
+
+        if let Some(url) = website_url {
+            shelter.website_url = Some(url);
         }
         if let Some(address) = address {
             shelter.address = address;
@@ -325,6 +336,7 @@ impl Service {
         if let Some(location) = location {
             shelter.location = location;
         }
+
         if let Some(spots) = spots {
             shelter.spots = spots;
         }

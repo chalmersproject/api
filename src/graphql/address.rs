@@ -4,7 +4,7 @@ use service::Address as AddressRepr;
 #[derive(Debug, Clone, Hash, SimpleObject)]
 pub struct Address {
     pub line1: String,
-    pub line2: String,
+    pub line2: Option<String>,
     pub city: String,
     pub region: String,
     pub country: String,
@@ -36,7 +36,7 @@ impl From<AddressRepr> for Address {
 #[derive(Debug, Clone, Hash, InputObject)]
 pub struct AddressInput {
     pub line1: String,
-    pub line2: String,
+    pub line2: Option<String>,
     pub city: String,
     pub region: String,
     pub country: String,

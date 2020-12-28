@@ -43,8 +43,8 @@ impl FromStr for Id {
         let parts: Vec<&str> = repr.split(':').collect();
         let parts = parts.as_slice();
 
-        let (uuid, type_name) = if let [uuid, type_name] = *parts {
-            (uuid, type_name)
+        let (type_name, uuid) = if let [type_name, uuid] = *parts {
+            (type_name, uuid)
         } else {
             bail!("invalid structure");
         };

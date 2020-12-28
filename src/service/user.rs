@@ -14,6 +14,7 @@ pub struct User {
     pub last_name: String,
 
     pub about: Option<String>,
+    pub image_url: Option<Url>,
     pub email: Option<Verifiable<Email>>,
     pub phone: Option<Verifiable<Phone>>,
 
@@ -52,6 +53,7 @@ pub struct CreateUserRequest {
     pub first_name: InputString,
     pub last_name: InputString,
     pub about: Option<InputString>,
+    pub image_url: Option<Url>,
     pub email: Option<Verifiable<Email>>,
     pub phone: Option<Verifiable<Phone>>,
     pub is_admin: bool,
@@ -59,6 +61,22 @@ pub struct CreateUserRequest {
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct CreateUserResponse {
+    pub user: User,
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct UpdateUserRequest {
+    pub user_id: Uuid,
+    pub first_name: Option<InputString>,
+    pub last_name: Option<InputString>,
+    pub about: Option<InputString>,
+    pub image_url: Option<Url>,
+    pub email: Option<Verifiable<Email>>,
+    pub phone: Option<Verifiable<Phone>>,
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct UpdateUserResponse {
     pub user: User,
 }
 
@@ -130,6 +148,7 @@ impl Service {
             first_name,
             last_name,
             about,
+            image_url,
             email,
             phone,
             is_admin,
@@ -153,6 +172,7 @@ impl Service {
                 last_name: last_name.into(),
 
                 about: about.map(Into::into),
+                image_url,
                 email,
                 phone,
 
@@ -177,6 +197,75 @@ impl Service {
         };
 
         let response = CreateUserResponse { user };
+        Ok(response)
+    }
+
+    pub async fn update_user(
+        &self,
+        request: UpdateUserRequest,
+    ) -> Result<UpdateUserResponse> {
+        let UpdateUserRequest {
+            user_id,
+            first_name,
+            last_name,
+            about,
+            image_url,
+            email,
+            phone,
+        } = request;
+
+        let mut user: User = {
+            let pool = self.database.clone();
+            let model = spawn_blocking(move || -> Result<UserModel> {
+                use schema::users;
+                let conn = pool.get().context("database connection failure")?;
+                users::table
+                    .find(user_id)
+                    .first(&conn)
+                    .context("failed to load user model")
+            })
+            .await
+            .unwrap()?;
+            model.try_into().context("failed to decode user model")?
+        };
+
+        if let Some(name) = first_name {
+            user.first_name = name.into();
+        }
+        if let Some(name) = last_name {
+            user.last_name = name.into();
+        }
+        if let Some(about) = about {
+            user.about = about.discard_empty().map(Into::into);
+        }
+        if let Some(url) = image_url {
+            user.image_url = url.into();
+        }
+        if let Some(email) = email {
+            user.email = Some(email);
+        }
+        if let Some(phone) = phone {
+            user.phone = Some(phone);
+        }
+
+        {
+            let pool = self.database.clone();
+            let user = UserModel::try_from(user.clone())
+                .context("failed to encode user")?;
+            spawn_blocking(move || -> Result<()> {
+                use schema::users;
+                let conn = pool.get().context("database connection failure")?;
+                update(users::table.find(user_id))
+                    .set(&user)
+                    .execute(&conn)
+                    .context("failed to update user model")?;
+                Ok(())
+            })
+            .await
+            .unwrap()?
+        };
+
+        let response = UpdateUserResponse { user };
         Ok(response)
     }
 }

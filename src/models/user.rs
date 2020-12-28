@@ -22,6 +22,7 @@ pub struct User {
     pub phone: Option<String>,
     pub is_phone_verified: bool,
     pub is_admin: bool,
+    pub image_url: Option<String>,
 }
 
 impl From<UserRepr> for User {
@@ -35,6 +36,7 @@ impl From<UserRepr> for User {
             first_name,
             last_name,
             about,
+            image_url,
             email,
             phone,
             is_admin,
@@ -59,10 +61,11 @@ impl From<UserRepr> for User {
             last_name,
             about,
             email: email.map(Into::into),
-            phone: phone.map(Into::into),
-            is_admin,
             is_email_verified,
+            phone: phone.map(Into::into),
             is_phone_verified,
+            is_admin,
+            image_url: image_url.map(|url| url.to_string()),
         }
     }
 }
@@ -85,7 +88,14 @@ impl TryFrom<User> for UserRepr {
             phone,
             is_phone_verified,
             is_admin,
+            image_url,
         } = user;
+
+        let slug = slug.try_into().context("failed to parse slug")?;
+        let image_url = image_url
+            .map(|url| url.parse())
+            .transpose()
+            .context("failed to parse image URL")?;
 
         let email = email
             .map(|email| -> Result<_> {
@@ -96,7 +106,6 @@ impl TryFrom<User> for UserRepr {
                 Ok(email)
             })
             .transpose()?;
-
         let phone = phone
             .map(|phone| -> Result<_> {
                 let phone: Phone =
@@ -111,10 +120,11 @@ impl TryFrom<User> for UserRepr {
             created_at,
             updated_at,
             firebase_id,
-            slug: slug.try_into().context("failed to parse slug")?,
+            slug,
             first_name,
             last_name,
             about,
+            image_url,
             email,
             phone,
             is_admin,

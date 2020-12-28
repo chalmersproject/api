@@ -1,7 +1,8 @@
 use super::prelude::*;
+use crate::auth::AuthClaims;
 
 use service::User as UserRepr;
-use service::{Email, Phone, Verifiable};
+use service::Verifiable;
 
 #[derive(Debug, Clone, Hash)]
 pub struct User(UserRepr);
@@ -39,6 +40,11 @@ impl User {
         self.0.about.as_ref()
     }
 
+    async fn image_url(&self) -> Option<String> {
+        let url = self.0.image_url.as_ref();
+        url.map(ToString::to_string)
+    }
+
     async fn email(&self) -> Option<&String> {
         let email = self.0.email.as_ref();
         email.map(|email| email.get().as_string())
@@ -61,7 +67,7 @@ impl User {
     }
 
     async fn is_phone_verified(&self) -> bool {
-        match &self.0.email {
+        match &self.0.phone {
             Some(phone) => phone.is_verified(),
             None => false,
         }
@@ -70,6 +76,7 @@ impl User {
 
 use service::CreateUserRequest;
 use service::GetUserByFirebaseIdRequest;
+use service::UpdateUserRequest;
 
 #[derive(Debug, Clone, Hash)]
 pub struct UserMutations;
@@ -83,12 +90,28 @@ pub struct CreateUserInput {
     pub last_name: String,
 
     pub about: Option<String>,
-    pub email: Option<String>,
-    pub phone: Option<String>,
+    pub image_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Hash, SimpleObject)]
 pub struct CreateUserPayload {
+    pub user: User,
+}
+
+#[derive(Debug, Clone, Hash, InputObject)]
+pub struct UpdateUserInput {
+    /// The user's new first name.
+    pub first_name: Option<String>,
+
+    /// The user's new last name.
+    pub last_name: Option<String>,
+
+    pub about: Option<String>,
+    pub image_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Hash, SimpleObject)]
+pub struct UpdateUserPayload {
     pub user: User,
 }
 
@@ -103,7 +126,16 @@ impl UserMutations {
         let service = get_service(ctx);
 
         // Ensure request is authenticated.
-        let auth = ctx.data_opt::<AuthInfo>().context("not authenticated")?;
+        let auth = ctx
+            .data_opt::<AuthInfo>()
+            .context("not authenticated")
+            .into_field_result()?;
+        let AuthClaims {
+            sub: firebase_id,
+            email,
+            email_verified,
+            ..
+        } = auth.claims();
 
         // Create user in service.
         let user = {
@@ -112,31 +144,26 @@ impl UserMutations {
                     first_name,
                     last_name,
                     about,
-                    email,
-                    phone,
+                    image_url,
                 } = input;
 
                 let about = about
                     .map(TryInto::try_into)
                     .transpose()
                     .context("invalid about text")?;
-                let email = email
-                    .map(|email| -> Result<_> {
-                        let email: Email =
-                            email.try_into().context("invalid email")?;
-                        Ok(Verifiable::Unverified(email))
-                    })
-                    .transpose()?;
-                let phone = phone
-                    .map(|phone| -> Result<_> {
-                        let phone: Phone =
-                            phone.try_into().context("invalid phone")?;
-                        Ok(Verifiable::Unverified(phone))
-                    })
-                    .transpose()?;
+                let image_url = image_url
+                    .map(|url| url.parse())
+                    .transpose()
+                    .context("invalid website URL")?;
+                let email = {
+                    let email =
+                        email.parse().context("invalid email address")?;
+                    let email = Verifiable::new(email, *email_verified);
+                    Some(email)
+                };
 
                 CreateUserRequest {
-                    firebase_id: auth.claims().sub.to_owned(),
+                    firebase_id: firebase_id.to_owned(),
                     first_name: first_name
                         .try_into()
                         .context("invalid first name")?,
@@ -144,8 +171,9 @@ impl UserMutations {
                         .try_into()
                         .context("invalid last name")?,
                     about,
+                    image_url,
                     email,
-                    phone,
+                    phone: None,
                     is_admin: false,
                 }
             };
@@ -156,6 +184,85 @@ impl UserMutations {
 
         // Return payload.
         let payload = CreateUserPayload { user: user.into() };
+        Ok(payload)
+    }
+
+    /// Update a `User`'s account information.
+    async fn update_user(
+        &self,
+        ctx: &Context<'_>,
+        input: UpdateUserInput,
+    ) -> FieldResult<UpdateUserPayload> {
+        let UpdateUserInput {
+            first_name,
+            last_name,
+            about,
+            image_url,
+        } = input;
+
+        let service = get_service(ctx);
+
+        // Ensure request is authenticated.
+        let auth = ctx
+            .data_opt::<AuthInfo>()
+            .context("not authenticated")
+            .into_field_result()?;
+        let AuthClaims {
+            email,
+            email_verified,
+            ..
+        } = auth.claims();
+
+        // Get authenticated user.
+        let viewer = get_viewer(ctx)
+            .await
+            .context("failed to get authenticated user")
+            .into_field_result()?;
+
+        // Update authenticated user in service.
+        let user = {
+            let request = {
+                let user_id = viewer.id;
+
+                let first_name = first_name
+                    .map(TryInto::try_into)
+                    .transpose()
+                    .context("invalid first name")?;
+                let last_name = last_name
+                    .map(TryInto::try_into)
+                    .transpose()
+                    .context("invalid last name")?;
+
+                let about = about
+                    .map(TryInto::try_into)
+                    .transpose()
+                    .context("invalid about text")?;
+                let image_url = image_url
+                    .map(|url| url.parse())
+                    .transpose()
+                    .context("invalid image URL")?;
+                let email = {
+                    let email = email.parse().context("invalid email")?;
+                    let email = Verifiable::new(email, *email_verified);
+                    Some(email)
+                };
+
+                UpdateUserRequest {
+                    user_id,
+                    first_name,
+                    last_name,
+                    about,
+                    image_url,
+                    email,
+                    phone: None,
+                }
+            };
+            let response =
+                service.update_user(request).await.into_field_result()?;
+            response.user
+        };
+
+        let payload = UpdateUserPayload { user: user.into() };
         Ok(payload)
     }
 }

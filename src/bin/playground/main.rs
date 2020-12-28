@@ -66,6 +66,7 @@ pub fn main() -> Result<()> {
                 first_name: first_name.parse().context("invalid first name")?,
                 last_name: last_name.parse().context("invalid last name")?,
                 about: None,
+                image_url: None,
                 email: Some(Verifiable::Unverified(
                     email.parse().context("invalid email address")?,
                 )),

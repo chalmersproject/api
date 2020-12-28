@@ -31,11 +31,11 @@ mod prelude {
         FieldError::new(message)
     }
 
-    pub trait IntoFieldResult<T> {
+    pub trait FieldResultExtension<T> {
         fn into_field_result(self) -> FieldResult<T>;
     }
 
-    impl<T, R> IntoFieldResult<T> for R
+    impl<T, R> FieldResultExtension<T> for R
     where
         R: Into<Result<T>>,
     {

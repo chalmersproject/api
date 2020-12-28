@@ -34,6 +34,11 @@ impl Shelter {
         self.0.about.as_ref()
     }
 
+    async fn image_url(&self) -> Option<String> {
+        let url = self.0.image_url.as_ref();
+        url.map(ToString::to_string)
+    }
+
     async fn email(&self) -> Option<&String> {
         let email = self.0.email.as_ref();
         email.map(Email::as_string)
@@ -43,14 +48,18 @@ impl Shelter {
         self.0.phone.as_string()
     }
 
-    async fn website(&self) -> Option<String> {
-        let url = self.0.website.as_ref();
+    async fn website_url(&self) -> Option<String> {
+        let url = self.0.website_url.as_ref();
         url.map(ToString::to_string)
     }
 
     async fn address(&self) -> Address {
         let address = self.0.address.to_owned();
         address.into()
+    }
+
+    async fn location(&self) -> Coordinate {
+        self.0.location.into()
     }
 
     async fn spots(&self) -> u16 {
@@ -155,9 +164,10 @@ pub struct ShelterMutations;
 pub struct CreateShelterInput {
     pub name: String,
     pub about: Option<String>,
+    pub image_url: Option<String>,
     pub email: Option<String>,
     pub phone: String,
-    pub website: Option<String>,
+    pub website_url: Option<String>,
     pub address: AddressInput,
     pub location: Coordinate,
     pub spots: u16,
@@ -173,12 +183,13 @@ pub struct CreateShelterPayload {
 
 #[derive(Debug, Clone, InputObject)]
 pub struct UpdateShelterInput {
-    pub shelter_id: Uuid,
+    pub shelter_id: Id,
     pub name: Option<String>,
     pub about: Option<String>,
+    pub image_url: Option<String>,
     pub email: Option<String>,
     pub phone: Option<String>,
-    pub website: Option<String>,
+    pub website_url: Option<String>,
     pub address: Option<AddressInput>,
     pub location: Option<Coordinate>,
     pub spots: Option<u16>,
@@ -203,9 +214,10 @@ impl ShelterMutations {
         let CreateShelterInput {
             name,
             about,
+            image_url,
             email,
             phone,
-            website,
+            website_url,
             address,
             location,
             spots,
@@ -237,13 +249,17 @@ impl ShelterMutations {
                     .map(TryInto::try_into)
                     .transpose()
                     .context("invalid about text")?;
+                let image_url = image_url
+                    .map(|url| url.parse())
+                    .transpose()
+                    .context("invalid image URL")?;
                 let email = email
                     .map(TryInto::try_into)
                     .transpose()
                     .context("invalid email address")?;
                 let phone = phone.try_into().context("invalid phone number")?;
 
-                let website = website
+                let website_url = website_url
                     .map(|url| url.parse())
                     .transpose()
                     .context("invalid website URL")?;
@@ -253,9 +269,10 @@ impl ShelterMutations {
                 CreateShelterRequest {
                     name,
                     about,
+                    image_url,
                     email,
                     phone,
-                    website,
+                    website_url,
                     address,
                     location,
                     spots,
@@ -286,9 +303,10 @@ impl ShelterMutations {
             shelter_id,
             name,
             about,
+            image_url,
             email,
             phone,
-            website,
+            website_url,
             address,
             location,
             spots,
@@ -296,6 +314,11 @@ impl ShelterMutations {
             food,
             tags,
         } = input;
+
+        let shelter_id = shelter_id
+            .get::<Shelter>()
+            .context("invalid shelter ID")
+            .into_field_result()?;
 
         let service = get_service(ctx);
 
@@ -323,6 +346,10 @@ impl ShelterMutations {
                     .map(TryInto::try_into)
                     .transpose()
                     .context("invalid about text")?;
+                let image_url = image_url
+                    .map(|url| url.parse())
+                    .transpose()
+                    .context("invalid image URL")?;
                 let email = email
                     .map(TryInto::try_into)
                     .transpose()
@@ -332,7 +359,7 @@ impl ShelterMutations {
                     .transpose()
                     .context("invalid phone number")?;
 
-                let website = website
+                let website_url = website_url
                     .map(|url| url.parse())
                     .transpose()
                     .context("invalid website URL")?;
@@ -347,9 +374,10 @@ impl ShelterMutations {
                     shelter_id,
                     name,
                     about,
+                    image_url,
                     email,
                     phone,
-                    website,
+                    website_url,
                     address,
                     location,
                     spots,

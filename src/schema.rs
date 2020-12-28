@@ -19,13 +19,14 @@ table! {
         about -> Nullable<Text>,
         email -> Nullable<Text>,
         phone -> Text,
-        website -> Nullable<Text>,
+        website_url -> Nullable<Text>,
         address -> Jsonb,
         location -> Jsonb,
         spots -> Int4,
         beds -> Int4,
         food -> Text,
         tags -> Array<Text>,
+        image_url -> Nullable<Text>,
     }
 }
 
@@ -44,6 +45,7 @@ table! {
         phone -> Nullable<Text>,
         is_phone_verified -> Bool,
         is_admin -> Bool,
+        image_url -> Nullable<Text>,
     }
 }
 
