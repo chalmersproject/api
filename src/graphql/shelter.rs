@@ -6,6 +6,10 @@ use service::Shelter as ShelterRepr;
 use service::ShelterFood as ShelterFoodRepr;
 use service::ShelterTag as ShelterTagRepr;
 
+use service::CreateShelterRequest;
+use service::DeleteShelterRequest;
+use service::UpdateShelterRequest;
+
 #[derive(Debug, Clone)]
 pub struct Shelter(ShelterRepr);
 
@@ -154,9 +158,6 @@ impl From<ShelterTagRepr> for ShelterTag {
     }
 }
 
-use service::CreateShelterRequest;
-use service::UpdateShelterRequest;
-
 #[derive(Debug, Clone, Hash)]
 pub struct ShelterMutations;
 
@@ -201,6 +202,11 @@ pub struct UpdateShelterInput {
 #[derive(Debug, Clone, SimpleObject)]
 pub struct UpdateShelterPayload {
     pub shelter: Shelter,
+}
+
+#[derive(Debug, Clone, InputObject)]
+pub struct DeleteShelterInput {
+    pub shelter_id: Id,
 }
 
 #[Object]
@@ -396,5 +402,42 @@ impl ShelterMutations {
             shelter: shelter.into(),
         };
         Ok(payload)
+    }
+
+    /// Delete a `Shelter`.
+    async fn delete_shelter(
+        &self,
+        ctx: &Context<'_>,
+        input: DeleteShelterInput,
+    ) -> FieldResult<bool> {
+        let DeleteShelterInput { shelter_id } = input;
+        let shelter_id = shelter_id
+            .get::<Shelter>()
+            .context("invalid shelter ID")
+            .into_field_result()?;
+
+        let service = get_service(ctx);
+
+        // Get authenticated user.
+        let viewer = get_viewer(ctx)
+            .await
+            .context("failed to get authenticated user")
+            .into_field_result()?;
+
+        // Only admins can delete shelters.
+        if !viewer.is_admin {
+            let error = FieldError::new("not authorized");
+            return Err(error);
+        }
+
+        // Update shelter in service.
+        {
+            let request = DeleteShelterRequest { shelter_id };
+            let _response =
+                service.delete_shelter(request).await.into_field_result()?;
+        };
+
+        // Return payload.
+        Ok(true)
     }
 }

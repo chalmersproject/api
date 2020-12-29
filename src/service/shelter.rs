@@ -140,6 +140,14 @@ pub struct UpdateShelterResponse {
     pub shelter: Shelter,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteShelterRequest {
+    pub shelter_id: Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteShelterResponse {}
+
 impl Service {
     pub async fn get_shelter(
         &self,
@@ -368,6 +376,30 @@ impl Service {
         };
 
         let response = UpdateShelterResponse { shelter };
+        Ok(response)
+    }
+
+    pub async fn delete_shelter(
+        &self,
+        request: DeleteShelterRequest,
+    ) -> Result<DeleteShelterResponse> {
+        let DeleteShelterRequest { shelter_id } = request;
+
+        {
+            let pool = self.database.clone();
+            spawn_blocking(move || -> Result<()> {
+                use schema::shelters;
+                let conn = pool.get().context("database connection failure")?;
+                delete_from(shelters::table.find(shelter_id))
+                    .execute(&conn)
+                    .context("failed to delete shelter model")?;
+                Ok(())
+            })
+            .await
+            .unwrap()?
+        };
+
+        let response = DeleteShelterResponse {};
         Ok(response)
     }
 }

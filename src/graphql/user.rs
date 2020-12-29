@@ -4,6 +4,10 @@ use crate::auth::AuthClaims;
 use service::User as UserRepr;
 use service::Verifiable;
 
+use service::CreateUserRequest;
+use service::GetUserByFirebaseIdRequest;
+use service::UpdateUserRequest;
+
 #[derive(Debug, Clone, Hash)]
 pub struct User(UserRepr);
 
@@ -73,10 +77,6 @@ impl User {
         }
     }
 }
-
-use service::CreateUserRequest;
-use service::GetUserByFirebaseIdRequest;
-use service::UpdateUserRequest;
 
 #[derive(Debug, Clone, Hash)]
 pub struct UserMutations;
