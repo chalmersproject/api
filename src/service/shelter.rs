@@ -20,10 +20,16 @@ pub struct Shelter {
     pub address: Address,
     pub location: Coordinate,
 
-    pub spots: u16,
-    pub beds: u16,
+    pub capacity: ShelterSpace,
+    pub occupancy: Option<ShelterSpace>,
     pub food: ShelterFood,
     pub tags: Set<ShelterTag>,
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct ShelterSpace {
+    pub spots: u16,
+    pub beds: u16,
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -107,8 +113,7 @@ pub struct CreateShelterRequest {
     pub website_url: Option<Url>,
     pub address: Address,
     pub location: Coordinate,
-    pub spots: u16,
-    pub beds: u16,
+    pub capacity: ShelterSpace,
     pub food: ShelterFood,
     pub tags: Set<ShelterTag>,
 }
@@ -129,8 +134,7 @@ pub struct UpdateShelterRequest {
     pub website_url: Option<Url>,
     pub address: Option<Address>,
     pub location: Option<Coordinate>,
-    pub spots: Option<u16>,
-    pub beds: Option<u16>,
+    pub capacity: Option<ShelterSpace>,
     pub food: Option<ShelterFood>,
     pub tags: Option<Set<ShelterTag>>,
 }
@@ -225,8 +229,7 @@ impl Service {
             website_url,
             address,
             location,
-            spots,
-            beds,
+            capacity,
             food,
             tags,
         } = request;
@@ -255,8 +258,8 @@ impl Service {
                 address,
                 location,
 
-                spots,
-                beds,
+                capacity,
+                occupancy: None,
                 food,
                 tags,
             }
@@ -297,8 +300,7 @@ impl Service {
             website_url,
             address,
             location,
-            spots,
-            beds,
+            capacity,
             food,
             tags,
         } = request;
@@ -345,11 +347,8 @@ impl Service {
             shelter.location = location;
         }
 
-        if let Some(spots) = spots {
-            shelter.spots = spots;
-        }
-        if let Some(beds) = beds {
-            shelter.beds = beds;
+        if let Some(space) = capacity {
+            shelter.capacity = space
         }
         if let Some(food) = food {
             shelter.food = food;

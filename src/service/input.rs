@@ -7,6 +7,22 @@ const INPUT_STRING_MAX_LENGTH: usize = 10_00;
 pub struct InputString(String);
 
 impl InputString {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn as_string(&self) -> &String {
+        &self.0
+    }
+}
+
+impl AsRef<str> for InputString {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl InputString {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -36,11 +52,5 @@ impl FromStr for InputString {
             bail!("exceeds character limit");
         }
         Ok(Self(s.trim().to_owned()))
-    }
-}
-
-impl AsRef<String> for InputString {
-    fn as_ref(&self) -> &String {
-        &self.0
     }
 }

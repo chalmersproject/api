@@ -1,11 +1,13 @@
 table! {
-    shelter_occupancies (id) {
+    shelter_measurements (id) {
         id -> Uuid,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         shelter_id -> Uuid,
         occupied_spots -> Int4,
         occupied_beds -> Int4,
+        total_spots -> Int4,
+        total_beds -> Int4,
     }
 }
 
@@ -22,11 +24,13 @@ table! {
         website_url -> Nullable<Text>,
         address -> Jsonb,
         location -> Jsonb,
-        spots -> Int4,
-        beds -> Int4,
+        total_spots -> Int4,
+        total_beds -> Int4,
         food -> Text,
         tags -> Array<Text>,
         image_url -> Nullable<Text>,
+        occupied_spots -> Nullable<Int4>,
+        occupied_beds -> Nullable<Int4>,
     }
 }
 
@@ -49,6 +53,6 @@ table! {
     }
 }
 
-joinable!(shelter_occupancies -> shelters (shelter_id));
+joinable!(shelter_measurements -> shelters (shelter_id));
 
-allow_tables_to_appear_in_same_query!(shelter_occupancies, shelters, users,);
+allow_tables_to_appear_in_same_query!(shelter_measurements, shelters, users,);

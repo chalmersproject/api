@@ -4,7 +4,14 @@ use service::{Email, Verifiable};
 use service::{Phone, User as UserRepr};
 
 #[derive(
-    Debug, Clone, Serialize, Deserialize, Queryable, Insertable, AsChangeset,
+    Debug,
+    Clone,
+    Hash,
+    Serialize,
+    Deserialize,
+    Queryable,
+    Insertable,
+    AsChangeset,
 )]
 #[table_name = "users"]
 #[changeset_options(treat_none_as_null = "true")]
@@ -31,14 +38,17 @@ impl From<UserRepr> for User {
             id,
             created_at,
             updated_at,
+
             firebase_id,
             slug,
             first_name,
             last_name,
+
             about,
             image_url,
             email,
             phone,
+
             is_admin,
         } = user;
 
@@ -119,14 +129,17 @@ impl TryFrom<User> for UserRepr {
             id,
             created_at,
             updated_at,
+
             firebase_id,
             slug,
             first_name,
             last_name,
+
             about,
             image_url,
             email,
             phone,
+
             is_admin,
         };
 

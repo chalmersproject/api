@@ -48,8 +48,8 @@ pub use self::geo::*;
 mod shelter;
 pub use shelter::*;
 
-mod shelter_occupancy;
-pub use shelter_occupancy::*;
+mod shelter_measurement;
+pub use shelter_measurement::*;
 
 use crate::db::PgPool;
 use crate::prelude::*;

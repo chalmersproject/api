@@ -16,6 +16,18 @@ impl Email {
     }
 }
 
+impl AsRef<str> for Email {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl AsRef<String> for Email {
+    fn as_ref(&self) -> &String {
+        &self.0
+    }
+}
+
 impl TryFrom<String> for Email {
     type Error = Error;
 

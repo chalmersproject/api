@@ -15,6 +15,22 @@ impl From<BuildInfo> for Build {
     }
 }
 
+#[derive(Debug, Clone, Hash)]
+pub struct MetaQueries;
+
+#[Object]
+impl MetaQueries {
+    /// Get build metadata for the current server.
+    async fn build(&self, ctx: &Context<'_>) -> FieldResult<Build> {
+        let build = ctx.data_unchecked::<BuildInfo>().to_owned();
+        Ok(build.into())
+    }
+}
+
 pub fn get_service<'a>(ctx: &'a Context<'_>) -> &'a Service {
     ctx.data_unchecked()
+}
+
+pub fn get_auth<'a>(ctx: &'a Context<'_>) -> Option<&'a AuthInfo> {
+    ctx.data_opt()
 }

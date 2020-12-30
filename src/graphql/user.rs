@@ -79,6 +79,37 @@ impl User {
 }
 
 #[derive(Debug, Clone, Hash)]
+pub struct UserQueries;
+
+#[Object]
+impl UserQueries {
+    /// Get the currently authenticated `User`.
+    async fn viewer(&self, ctx: &Context<'_>) -> FieldResult<Option<User>> {
+        let service = get_service(ctx);
+
+        // If not authenticated, return None.
+        let auth = match get_auth(ctx) {
+            Some(auth) => auth,
+            None => return Ok(None),
+        };
+        let firebase_id = auth.claims().user_id.to_owned();
+
+        // Request viewer from service.
+        let viewer = {
+            let request = GetUserByFirebaseIdRequest { firebase_id };
+            let response = service
+                .get_user_by_firebase_id(request)
+                .await
+                .into_field_result()?;
+            response.user
+        };
+
+        // Return viewer object.
+        Ok(viewer.map(Into::into))
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
 pub struct UserMutations;
 
 #[derive(Debug, Clone, Hash, InputObject)]
@@ -123,41 +154,47 @@ impl UserMutations {
         ctx: &Context<'_>,
         input: CreateUserInput,
     ) -> FieldResult<CreateUserPayload> {
-        let service = get_service(ctx);
+        let CreateUserInput {
+            first_name,
+            last_name,
+            about,
+            image_url,
+        } = input;
 
-        // Ensure request is authenticated.
-        let auth = ctx
-            .data_opt::<AuthInfo>()
-            .context("not authenticated")
-            .into_field_result()?;
+        // Get auth claims.
         let AuthClaims {
-            sub: firebase_id,
+            user_id: firebase_id,
             email,
             email_verified,
             ..
-        } = auth.claims();
+        } = {
+            let auth = get_auth(ctx)
+                .context("not authenticated")
+                .into_field_result()?;
+            auth.claims()
+        };
+
+        // Get service.
+        let service = get_service(ctx);
 
         // Create user in service.
         let user = {
             let request = {
-                let CreateUserInput {
-                    first_name,
-                    last_name,
-                    about,
-                    image_url,
-                } = input;
-
                 let about = about
                     .map(TryInto::try_into)
                     .transpose()
-                    .context("invalid about text")?;
+                    .context("invalid about text")
+                    .into_field_result()?;
                 let image_url = image_url
                     .map(|url| url.parse())
                     .transpose()
-                    .context("invalid website URL")?;
+                    .context("invalid website URL")
+                    .into_field_result()?;
                 let email = {
-                    let email =
-                        email.parse().context("invalid email address")?;
+                    let email = email
+                        .parse()
+                        .context("invalid email address")
+                        .into_field_result()?;
                     let email = Verifiable::new(email, *email_verified);
                     Some(email)
                 };
@@ -166,10 +203,12 @@ impl UserMutations {
                     firebase_id: firebase_id.to_owned(),
                     first_name: first_name
                         .try_into()
-                        .context("invalid first name")?,
+                        .context("invalid first name")
+                        .into_field_result()?,
                     last_name: last_name
                         .try_into()
-                        .context("invalid last name")?,
+                        .context("invalid last name")
+                        .into_field_result()?,
                     about,
                     image_url,
                     email,
@@ -182,7 +221,7 @@ impl UserMutations {
             response.user
         };
 
-        // Return payload.
+        // Respond with payload.
         let payload = CreateUserPayload { user: user.into() };
         Ok(payload)
     }
@@ -200,18 +239,20 @@ impl UserMutations {
             image_url,
         } = input;
 
+        // Get service.
         let service = get_service(ctx);
 
-        // Ensure request is authenticated.
-        let auth = ctx
-            .data_opt::<AuthInfo>()
-            .context("not authenticated")
-            .into_field_result()?;
+        // Get auth claims.
         let AuthClaims {
             email,
             email_verified,
             ..
-        } = auth.claims();
+        } = {
+            let auth = get_auth(ctx)
+                .context("not authenticated")
+                .into_field_result()?;
+            auth.claims()
+        };
 
         // Get authenticated user.
         let viewer = get_viewer(ctx)
@@ -227,22 +268,29 @@ impl UserMutations {
                 let first_name = first_name
                     .map(TryInto::try_into)
                     .transpose()
-                    .context("invalid first name")?;
+                    .context("invalid first name")
+                    .into_field_result()?;
                 let last_name = last_name
                     .map(TryInto::try_into)
                     .transpose()
-                    .context("invalid last name")?;
+                    .context("invalid last name")
+                    .into_field_result()?;
 
                 let about = about
                     .map(TryInto::try_into)
                     .transpose()
-                    .context("invalid about text")?;
+                    .context("invalid about text")
+                    .into_field_result()?;
                 let image_url = image_url
                     .map(|url| url.parse())
                     .transpose()
-                    .context("invalid image URL")?;
+                    .context("invalid image URL")
+                    .into_field_result()?;
                 let email = {
-                    let email = email.parse().context("invalid email")?;
+                    let email = email
+                        .parse()
+                        .context("invalid email")
+                        .into_field_result()?;
                     let email = Verifiable::new(email, *email_verified);
                     Some(email)
                 };
@@ -268,16 +316,16 @@ impl UserMutations {
 }
 
 pub async fn get_viewer(ctx: &Context<'_>) -> Result<UserRepr> {
-    let service = get_service(ctx);
+    // Get auth info.
+    let auth = get_auth(ctx).context("not authenticated")?;
+    let firebase_id = auth.claims().user_id.to_owned();
 
-    // Ensure request is authenticated.
-    let auth = ctx.data_opt::<AuthInfo>().context("not authenticated")?;
+    // Get service.
+    let service = get_service(ctx);
 
     // Get authenticated user from service.
     let user = {
-        let request = GetUserByFirebaseIdRequest {
-            firebase_id: auth.claims().sub.to_owned(),
-        };
+        let request = GetUserByFirebaseIdRequest { firebase_id };
         let response = service.get_user_by_firebase_id(request).await?;
         response.user
     };

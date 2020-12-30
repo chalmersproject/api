@@ -16,6 +16,18 @@ impl Phone {
     }
 }
 
+impl AsRef<str> for Phone {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl AsRef<String> for Phone {
+    fn as_ref(&self) -> &String {
+        &self.0
+    }
+}
+
 impl TryFrom<String> for Phone {
     type Error = Error;
 

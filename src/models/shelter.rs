@@ -1,6 +1,7 @@
 use super::prelude::*;
 
 use service::Shelter as ShelterRepr;
+use service::ShelterSpace;
 
 #[derive(
     Debug, Clone, Serialize, Deserialize, Queryable, Insertable, AsChangeset,
@@ -19,11 +20,13 @@ pub struct Shelter {
     pub website_url: Option<String>,
     pub address: JsonValue,
     pub location: JsonValue,
-    pub spots: i32,
-    pub beds: i32,
+    pub total_spots: i32,
+    pub total_beds: i32,
     pub food: String,
     pub tags: Vec<String>,
     pub image_url: Option<String>,
+    pub occupied_spots: Option<i32>,
+    pub occupied_beds: Option<i32>,
 }
 
 impl TryFrom<ShelterRepr> for Shelter {
@@ -33,17 +36,21 @@ impl TryFrom<ShelterRepr> for Shelter {
             id,
             created_at,
             updated_at,
+
             slug,
             name,
+
             about,
             image_url,
             email,
             phone,
+
             website_url,
             address,
             location,
-            spots,
-            beds,
+
+            capacity,
+            occupancy,
             food,
             tags,
         } = shelter;
@@ -52,6 +59,24 @@ impl TryFrom<ShelterRepr> for Shelter {
             to_json_value(address).context("failed to encode address")?;
         let location =
             to_json_value(location).context("failed to encode location")?;
+
+        let ShelterSpace {
+            spots: total_spots,
+            beds: total_beds,
+        } = capacity;
+
+        let (occupancy_spots, occupancy_beds) = match occupancy {
+            Some(ShelterSpace { beds, spots }) => (Some(beds), Some(spots)),
+            None => (None, None),
+        };
+        let occupied_spots = occupancy_spots
+            .map(TryInto::try_into)
+            .transpose()
+            .context("failed to convert occupied spots count")?;
+        let occupied_beds = occupancy_beds
+            .map(TryInto::try_into)
+            .transpose()
+            .context("failed to convert occupied beds count")?;
 
         let shelter = Self {
             id,
@@ -66,10 +91,12 @@ impl TryFrom<ShelterRepr> for Shelter {
             website_url: website_url.map(|url| url.to_string()),
             address,
             location,
-            spots: spots.into(),
-            beds: beds.into(),
+            total_spots: total_spots.into(),
+            total_beds: total_beds.into(),
             food: food.to_string(),
             tags: tags.into_iter().map(|tag| tag.to_string()).collect(),
+            occupied_spots,
+            occupied_beds,
         };
 
         Ok(shelter)
@@ -92,11 +119,13 @@ impl TryFrom<Shelter> for ShelterRepr {
             website_url,
             address,
             location,
-            spots,
-            beds,
+            total_spots,
+            total_beds,
             food,
             tags,
             image_url,
+            occupied_spots,
+            occupied_beds,
         } = shelter;
 
         let slug = slug.try_into().context("failed to parse slug")?;
@@ -120,8 +149,30 @@ impl TryFrom<Shelter> for ShelterRepr {
         let location =
             from_json_value(location).context("failed to decode location")?;
 
-        let spots = spots.try_into().context("failed to convert spot count")?;
-        let beds = beds.try_into().context("failed to convert bed count")?;
+        let total_spots = total_spots
+            .try_into()
+            .context("failed to convert total spots count")?;
+        let total_beds = total_beds
+            .try_into()
+            .context("failed to convert total beds count")?;
+        let capacity = ShelterSpace {
+            spots: total_spots,
+            beds: total_beds,
+        };
+
+        let occupied_spots = occupied_spots
+            .map(TryInto::try_into)
+            .transpose()
+            .context("failed to convert occupied spots count")?;
+        let occupied_beds = occupied_beds
+            .map(TryInto::try_into)
+            .transpose()
+            .context("failed to convert occupied beds count")?;
+        let occupancy = match (occupied_spots, occupied_beds) {
+            (Some(spots), Some(beds)) => Some(ShelterSpace { spots, beds }),
+            _ => None,
+        };
+
         let food = food.parse().context("failed to parse food options")?;
         let tags = tags
             .into_iter()
@@ -133,17 +184,21 @@ impl TryFrom<Shelter> for ShelterRepr {
             id,
             created_at,
             updated_at,
+
             slug,
             name,
+
             about,
             image_url,
             email,
             phone,
+
             website_url,
             address,
             location,
-            spots,
-            beds,
+
+            capacity,
+            occupancy,
             food,
             tags,
         };

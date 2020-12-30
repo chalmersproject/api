@@ -4,10 +4,13 @@ use service::Email;
 
 use service::Shelter as ShelterRepr;
 use service::ShelterFood as ShelterFoodRepr;
+use service::ShelterSpace as ShelterSpaceRepr;
 use service::ShelterTag as ShelterTagRepr;
 
 use service::CreateShelterRequest;
 use service::DeleteShelterRequest;
+use service::GetShelterRequest;
+use service::ListSheltersRequest;
 use service::UpdateShelterRequest;
 
 #[derive(Debug, Clone)]
@@ -66,12 +69,14 @@ impl Shelter {
         self.0.location.into()
     }
 
-    async fn spots(&self) -> u16 {
-        self.0.spots
+    async fn capacity(&self) -> ShelterSpace {
+        let capacity = self.0.capacity.to_owned();
+        capacity.into()
     }
 
-    async fn beds(&self) -> u16 {
-        self.0.beds
+    async fn occupancy(&self) -> ShelterSpace {
+        let occupancy = self.0.capacity.to_owned();
+        occupancy.into()
     }
 
     async fn food(&self) -> ShelterFood {
@@ -158,6 +163,99 @@ impl From<ShelterTagRepr> for ShelterTag {
     }
 }
 
+#[derive(Debug, Clone, Hash, SimpleObject)]
+pub struct ShelterSpace {
+    pub spots: u16,
+    pub beds: u16,
+}
+
+impl From<ShelterSpaceRepr> for ShelterSpace {
+    fn from(space: ShelterSpaceRepr) -> Self {
+        let ShelterSpaceRepr { beds, spots } = space;
+        Self { beds, spots }
+    }
+}
+
+#[derive(Debug, Clone, Hash, InputObject)]
+pub struct ShelterSpaceInput {
+    pub spots: u16,
+    pub beds: u16,
+}
+
+impl From<ShelterSpaceInput> for ShelterSpaceRepr {
+    fn from(space: ShelterSpaceInput) -> Self {
+        let ShelterSpaceInput { beds, spots } = space;
+        Self { beds, spots }
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
+pub struct ShelterQueries;
+
+#[Object]
+impl ShelterQueries {
+    /// Get a `Shelter` by its `ID`.
+    async fn shelter(
+        &self,
+        ctx: &Context<'_>,
+
+        #[rustfmt::skip]
+        #[graphql(desc = "The `ID` of the `Shelter` to fetch.")]
+        id: Id,
+    ) -> FieldResult<Option<Shelter>> {
+        let service = get_service(ctx);
+
+        // Request shelter from service.
+        let shelter = {
+            let request = {
+                let shelter_id =
+                    id.get::<Shelter>().context("invalid shelter ID")?;
+                GetShelterRequest { shelter_id }
+            };
+            let response =
+                service.get_shelter(request).await.into_field_result()?;
+            response.shelter
+        };
+
+        // Return shelter object.
+        Ok(shelter.map(Into::into))
+    }
+
+    /// List all registered `Shelter`s.
+    async fn shelters(
+        &self,
+        ctx: &Context<'_>,
+
+        // TODO: Use `default` instead of `default_with` once
+        // https://github.com/async-graphql/async-graphql/issues/361
+        // is resolved.
+        #[rustfmt::skip]
+        #[graphql(
+            desc = "The maximum number of `Shelter`s to fetch.",
+            default_with = "25"
+        )]
+        limit: u32,
+
+        #[rustfmt::skip]
+        #[graphql(desc = "The number of initial `Shelter`s to skip.", default)]
+        offset: u32,
+    ) -> FieldResult<Vec<Shelter>> {
+        let service = get_service(ctx);
+
+        // Request shelters from service.
+        let shelters = {
+            let request = ListSheltersRequest { limit, offset };
+            let response =
+                service.list_shelters(request).await.into_field_result()?;
+            response.shelters
+        };
+
+        // Return shelter object.
+        let shelters = shelters.into_iter().map(Into::into).collect();
+        Ok(shelters)
+    }
+}
+
 #[derive(Debug, Clone, Hash)]
 pub struct ShelterMutations;
 
@@ -171,8 +269,7 @@ pub struct CreateShelterInput {
     pub website_url: Option<String>,
     pub address: AddressInput,
     pub location: Coordinate,
-    pub spots: u16,
-    pub beds: u16,
+    pub capacity: ShelterSpaceInput,
     pub food: ShelterFood,
     pub tags: Set<ShelterTag>,
 }
@@ -193,8 +290,7 @@ pub struct UpdateShelterInput {
     pub website_url: Option<String>,
     pub address: Option<AddressInput>,
     pub location: Option<Coordinate>,
-    pub spots: Option<u16>,
-    pub beds: Option<u16>,
+    pub capacity: Option<ShelterSpaceInput>,
     pub food: Option<ShelterFood>,
     pub tags: Option<Set<ShelterTag>>,
 }
@@ -226,12 +322,12 @@ impl ShelterMutations {
             website_url,
             address,
             location,
-            spots,
-            beds,
+            capacity,
             food,
             tags,
         } = input;
 
+        // Get service.
         let service = get_service(ctx);
 
         // Get authenticated user.
@@ -249,21 +345,30 @@ impl ShelterMutations {
         // Create shelter in service.
         let shelter = {
             let request = {
-                let name = name.try_into().context("invalid name")?;
+                let name = name
+                    .try_into()
+                    .context("invalid name")
+                    .into_field_result()?;
 
                 let about = about
                     .map(TryInto::try_into)
                     .transpose()
-                    .context("invalid about text")?;
+                    .context("invalid about text")
+                    .into_field_result()?;
                 let image_url = image_url
                     .map(|url| url.parse())
                     .transpose()
-                    .context("invalid image URL")?;
+                    .context("invalid image URL")
+                    .into_field_result()?;
                 let email = email
                     .map(TryInto::try_into)
                     .transpose()
-                    .context("invalid email address")?;
-                let phone = phone.try_into().context("invalid phone number")?;
+                    .context("invalid email address")
+                    .into_field_result()?;
+                let phone = phone
+                    .try_into()
+                    .context("invalid phone number")
+                    .into_field_result()?;
 
                 let website_url = website_url
                     .map(|url| url.parse())
@@ -281,8 +386,7 @@ impl ShelterMutations {
                     website_url,
                     address,
                     location,
-                    spots,
-                    beds,
+                    capacity: capacity.into(),
                     food: food.into(),
                     tags: tags.into_iter().map(Into::into).collect(),
                 }
@@ -292,7 +396,7 @@ impl ShelterMutations {
             response.shelter
         };
 
-        // Return payload.
+        // Respond with payload.
         let payload = CreateShelterPayload {
             shelter: shelter.into(),
         };
@@ -315,17 +419,18 @@ impl ShelterMutations {
             website_url,
             address,
             location,
-            spots,
-            beds,
+            capacity,
             food,
             tags,
         } = input;
 
+        // Validate shelter ID.
         let shelter_id = shelter_id
             .get::<Shelter>()
             .context("invalid shelter ID")
             .into_field_result()?;
 
+        // Get service.
         let service = get_service(ctx);
 
         // Get authenticated user.
@@ -346,32 +451,39 @@ impl ShelterMutations {
                 let name = name
                     .map(TryInto::try_into)
                     .transpose()
-                    .context("invalid name")?;
+                    .context("invalid name")
+                    .into_field_result()?;
 
                 let about = about
                     .map(TryInto::try_into)
                     .transpose()
-                    .context("invalid about text")?;
+                    .context("invalid about text")
+                    .into_field_result()?;
                 let image_url = image_url
                     .map(|url| url.parse())
                     .transpose()
-                    .context("invalid image URL")?;
+                    .context("invalid image URL")
+                    .into_field_result()?;
                 let email = email
                     .map(TryInto::try_into)
                     .transpose()
-                    .context("invalid email address")?;
+                    .context("invalid email address")
+                    .into_field_result()?;
                 let phone = phone
                     .map(TryInto::try_into)
                     .transpose()
-                    .context("invalid phone number")?;
+                    .context("invalid phone number")
+                    .into_field_result()?;
 
                 let website_url = website_url
                     .map(|url| url.parse())
                     .transpose()
-                    .context("invalid website URL")?;
+                    .context("invalid website URL")
+                    .into_field_result()?;
                 let address = address.map(Into::into);
                 let location = location.map(Into::into);
 
+                let capacity = capacity.map(Into::into);
                 let food = food.map(Into::into);
                 let tags =
                     tags.map(|tags| tags.into_iter().map(Into::into).collect());
@@ -386,8 +498,7 @@ impl ShelterMutations {
                     website_url,
                     address,
                     location,
-                    spots,
-                    beds,
+                    capacity,
                     food,
                     tags,
                 }
@@ -411,11 +522,14 @@ impl ShelterMutations {
         input: DeleteShelterInput,
     ) -> FieldResult<bool> {
         let DeleteShelterInput { shelter_id } = input;
+
+        // Validate shelter ID.
         let shelter_id = shelter_id
             .get::<Shelter>()
             .context("invalid shelter ID")
             .into_field_result()?;
 
+        // Get service.
         let service = get_service(ctx);
 
         // Get authenticated user.
@@ -437,7 +551,7 @@ impl ShelterMutations {
                 service.delete_shelter(request).await.into_field_result()?;
         };
 
-        // Return payload.
+        // Respond with payload.
         Ok(true)
     }
 }

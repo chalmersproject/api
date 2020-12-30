@@ -23,5 +23,5 @@ pub use user::*;
 pub mod shelter;
 pub use shelter::*;
 
-pub mod shelter_occupancy;
-pub use shelter_occupancy::*;
+pub mod shelter_measurement;
+pub use shelter_measurement::*;

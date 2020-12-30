@@ -4,6 +4,7 @@ mod prelude {
 
     pub use crate::auth::AuthInfo;
     pub use crate::db::*;
+    pub use crate::meta::BuildInfo;
     pub use crate::prelude::*;
 
     pub use super::*;
