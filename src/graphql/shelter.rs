@@ -4,9 +4,11 @@ use service::Shelter as ShelterRepr;
 use service::ShelterFood as ShelterFoodRepr;
 use service::ShelterSpace as ShelterSpaceRepr;
 use service::ShelterTag as ShelterTagRepr;
+use service::Slug;
 
 use service::CreateShelterRequest;
 use service::DeleteShelterRequest;
+use service::GetShelterBySlugRequest;
 use service::GetShelterRequest;
 use service::GetShelterSignalsRequest;
 use service::ListSheltersRequest;
@@ -247,6 +249,33 @@ impl ShelterQueries {
             };
             let response =
                 service.get_shelter(request).await.into_field_result()?;
+            response.shelter
+        };
+
+        // Return shelter object.
+        Ok(shelter.map(Into::into))
+    }
+
+    /// Get a `Shelter` by its slug.
+    async fn shelter_by_slug(
+        &self,
+        ctx: &Context<'_>,
+
+        #[rustfmt::skip]
+        #[graphql(desc = "The slug of the `Shelter` to fetch.")]
+        slug: String,
+    ) -> FieldResult<Option<Shelter>> {
+        let slug: Slug = slug.try_into().context("invalid slug")?;
+
+        let service = get_service(ctx);
+
+        // Request shelter from service.
+        let shelter = {
+            let request = GetShelterBySlugRequest { slug };
+            let response = service
+                .get_shelter_by_slug(request)
+                .await
+                .into_field_result()?;
             response.shelter
         };
 

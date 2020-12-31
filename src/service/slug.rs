@@ -19,9 +19,9 @@ impl Slug {
             return Slug::default();
         }
 
-        let head = slugify(name);
         let tail = generate_tail();
-        Self(format!("{}-{}", head, tail))
+        let slug = format!("{}-{}", name, tail);
+        Self(slugify(slug))
     }
 }
 

@@ -94,6 +94,16 @@ pub struct GetShelterResponse {
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct GetShelterBySlugRequest {
+    pub slug: Slug,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetShelterBySlugResponse {
+    pub shelter: Option<Shelter>,
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct GetShelterSignalsRequest {
     pub shelter_id: Uuid,
 }
@@ -194,6 +204,39 @@ impl Service {
         let response = GetShelterResponse { shelter };
         Ok(response)
     }
+
+    pub async fn get_shelter_by_slug(
+        &self,
+        request: GetShelterBySlugRequest,
+    ) -> Result<GetShelterBySlugResponse> {
+        let GetShelterBySlugRequest { slug } = request;
+
+        let shelter: Option<Shelter> = {
+            let pool = self.database.clone();
+            let slug = slug.to_string();
+            let model =
+                spawn_blocking(move || -> Result<Option<ShelterModel>> {
+                    use schema::shelters;
+                    let conn =
+                        pool.get().context("database connection failure")?;
+                    shelters::table
+                        .filter(shelters::slug.eq(slug))
+                        .first(&conn)
+                        .optional()
+                        .context("failed to load shelter model")
+                })
+                .await
+                .unwrap()?;
+            model
+                .map(TryInto::try_into)
+                .transpose()
+                .context("failed to decode shelter model")?
+        };
+
+        let response = GetShelterBySlugResponse { shelter };
+        Ok(response)
+    }
+
     pub async fn get_shelter_signals(
         &self,
         request: GetShelterSignalsRequest,
