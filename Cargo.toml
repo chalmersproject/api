@@ -34,9 +34,10 @@ lazy_static = "1"
 log = "0.4"
 logger = { package = "pretty_env_logger", version = "0.4" }
 mailchecker = "3"
-number = { package = "num-traits", version = "0.2" }
+rand = "0.8"
 regex = "1"
 serde = "1"
+slug = "0.1"
 tide = "0.15"
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "time", "sync"] }
 tokio_compat = { package = "tokio-compat-02", version = "0.1" }

@@ -1,7 +1,5 @@
 use super::prelude::*;
 
-use service::Email;
-
 use service::Shelter as ShelterRepr;
 use service::ShelterFood as ShelterFoodRepr;
 use service::ShelterSpace as ShelterSpaceRepr;
@@ -10,6 +8,7 @@ use service::ShelterTag as ShelterTagRepr;
 use service::CreateShelterRequest;
 use service::DeleteShelterRequest;
 use service::GetShelterRequest;
+use service::GetShelterSignalsRequest;
 use service::ListSheltersRequest;
 use service::UpdateShelterRequest;
 
@@ -29,35 +28,36 @@ impl Shelter {
         Id::new::<Self>(self.0.id)
     }
 
-    async fn slug(&self) -> &String {
-        self.0.slug.as_string()
+    async fn name(&self) -> &str {
+        self.0.name.as_ref()
     }
 
-    async fn name(&self) -> &String {
-        &self.0.name
+    async fn slug(&self) -> &str {
+        self.0.slug.as_ref()
     }
 
-    async fn about(&self) -> Option<&String> {
-        self.0.about.as_ref()
+    async fn about(&self) -> Option<&str> {
+        let about = self.0.about.as_ref();
+        about.map(AsRef::as_ref)
     }
 
-    async fn image_url(&self) -> Option<String> {
+    async fn image_url(&self) -> Option<&str> {
         let url = self.0.image_url.as_ref();
-        url.map(ToString::to_string)
+        url.map(AsRef::as_ref)
     }
 
-    async fn email(&self) -> Option<&String> {
+    async fn email(&self) -> Option<&str> {
         let email = self.0.email.as_ref();
-        email.map(Email::as_string)
+        email.map(AsRef::as_ref)
     }
 
-    async fn phone(&self) -> &String {
-        self.0.phone.as_string()
+    async fn phone(&self) -> &str {
+        self.0.phone.as_ref()
     }
 
-    async fn website_url(&self) -> Option<String> {
+    async fn website_url(&self) -> Option<&str> {
         let url = self.0.website_url.as_ref();
-        url.map(ToString::to_string)
+        url.map(AsRef::as_ref)
     }
 
     async fn address(&self) -> Address {
@@ -87,6 +87,39 @@ impl Shelter {
         let tags = self.0.tags.to_owned();
         tags.into_iter().map(Into::into).collect()
     }
+
+    async fn signals(&self, ctx: &Context<'_>) -> FieldResult<Vec<Signal>> {
+        // Get viewer.
+        let viewer = get_viewer(ctx)
+            .await
+            .context("failed to get viewer")
+            .into_field_result()?;
+
+        // Only admins can view signals.
+        if !viewer.is_admin {
+            let error = FieldError::new("not authorized");
+            return Err(error);
+        }
+
+        // Get service.
+        let service = get_service(ctx);
+
+        // Get corresponding signals.
+        let signals = {
+            let request = GetShelterSignalsRequest {
+                shelter_id: self.0.id,
+            };
+            let response = service
+                .get_shelter_signals(request)
+                .await
+                .into_field_result()?;
+            response.signals
+        };
+
+        // Respond with signal objects.
+        let signals = signals.into_iter().map(Into::into).collect();
+        Ok(signals)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Enum)]
@@ -97,10 +130,10 @@ pub enum ShelterFood {
 }
 
 impl From<ShelterFood> for ShelterFoodRepr {
-    fn from(role: ShelterFood) -> Self {
+    fn from(food: ShelterFood) -> Self {
         use ShelterFood::*;
         use ShelterFoodRepr as Repr;
-        match role {
+        match food {
             Meals => Repr::Meals,
             Snacks => Repr::Snacks,
             None => Repr::None,
@@ -109,10 +142,10 @@ impl From<ShelterFood> for ShelterFoodRepr {
 }
 
 impl From<ShelterFoodRepr> for ShelterFood {
-    fn from(role: ShelterFoodRepr) -> Self {
+    fn from(food: ShelterFoodRepr) -> Self {
         use ShelterFood::*;
         use ShelterFoodRepr as Repr;
-        match role {
+        match food {
             Repr::Meals => Meals,
             Repr::Snacks => Snacks,
             Repr::None => None,
@@ -132,10 +165,10 @@ pub enum ShelterTag {
 }
 
 impl From<ShelterTag> for ShelterTagRepr {
-    fn from(role: ShelterTag) -> Self {
+    fn from(tag: ShelterTag) -> Self {
         use ShelterTag::*;
         use ShelterTagRepr as Repr;
-        match role {
+        match tag {
             Adult => Repr::Adult,
             Youth => Repr::Youth,
             Family => Repr::Family,
@@ -148,10 +181,10 @@ impl From<ShelterTag> for ShelterTagRepr {
 }
 
 impl From<ShelterTagRepr> for ShelterTag {
-    fn from(role: ShelterTagRepr) -> Self {
+    fn from(tag: ShelterTagRepr) -> Self {
         use ShelterTag::*;
         use ShelterTagRepr as Repr;
-        match role {
+        match tag {
             Repr::Adult => Adult,
             Repr::Youth => Youth,
             Repr::Family => Family,
@@ -327,9 +360,6 @@ impl ShelterMutations {
             tags,
         } = input;
 
-        // Get service.
-        let service = get_service(ctx);
-
         // Get authenticated user.
         let viewer = get_viewer(ctx)
             .await
@@ -341,6 +371,9 @@ impl ShelterMutations {
             let error = FieldError::new("not authorized");
             return Err(error);
         }
+
+        // Get service.
+        let service = get_service(ctx);
 
         // Create shelter in service.
         let shelter = {
@@ -529,9 +562,6 @@ impl ShelterMutations {
             .context("invalid shelter ID")
             .into_field_result()?;
 
-        // Get service.
-        let service = get_service(ctx);
-
         // Get authenticated user.
         let viewer = get_viewer(ctx)
             .await
@@ -544,11 +574,13 @@ impl ShelterMutations {
             return Err(error);
         }
 
-        // Update shelter in service.
+        // Get service.
+        let service = get_service(ctx);
+
+        // Delete shelter in service.
         {
             let request = DeleteShelterRequest { shelter_id };
-            let _response =
-                service.delete_shelter(request).await.into_field_result()?;
+            service.delete_shelter(request).await.into_field_result()?;
         };
 
         // Respond with payload.

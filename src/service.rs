@@ -25,7 +25,7 @@ mod verifiable;
 pub use verifiable::*;
 
 mod slug;
-pub use slug::*;
+pub use self::slug::*;
 
 mod input;
 pub use input::*;
@@ -50,6 +50,9 @@ pub use shelter::*;
 
 mod shelter_measurement;
 pub use shelter_measurement::*;
+
+mod signal;
+pub use signal::*;
 
 use crate::db::PgPool;
 use crate::prelude::*;

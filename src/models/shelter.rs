@@ -3,6 +3,50 @@ use super::prelude::*;
 use service::Shelter as ShelterRepr;
 use service::ShelterSpace;
 
+// Waiting for https://github.com/diesel-rs/diesel/pull/2367 to merge to end
+// this madness.
+pub type ShelterColumns = (
+    shelters::id,
+    shelters::created_at,
+    shelters::updated_at,
+    shelters::slug,
+    shelters::name,
+    shelters::about,
+    shelters::email,
+    shelters::phone,
+    shelters::website_url,
+    shelters::address,
+    shelters::location,
+    shelters::total_spots,
+    shelters::total_beds,
+    shelters::food,
+    shelters::tags,
+    shelters::image_url,
+    shelters::occupied_spots,
+    shelters::occupied_beds,
+);
+
+pub const SHELTER_COLUMNS: ShelterColumns = (
+    shelters::id,
+    shelters::created_at,
+    shelters::updated_at,
+    shelters::slug,
+    shelters::name,
+    shelters::about,
+    shelters::email,
+    shelters::phone,
+    shelters::website_url,
+    shelters::address,
+    shelters::location,
+    shelters::total_spots,
+    shelters::total_beds,
+    shelters::food,
+    shelters::tags,
+    shelters::image_url,
+    shelters::occupied_spots,
+    shelters::occupied_beds,
+);
+
 #[derive(
     Debug, Clone, Serialize, Deserialize, Queryable, Insertable, AsChangeset,
 )]
@@ -37,8 +81,8 @@ impl TryFrom<ShelterRepr> for Shelter {
             created_at,
             updated_at,
 
-            slug,
             name,
+            slug,
 
             about,
             image_url,
@@ -185,8 +229,8 @@ impl TryFrom<Shelter> for ShelterRepr {
             created_at,
             updated_at,
 
-            slug,
             name,
+            slug,
 
             about,
             image_url,

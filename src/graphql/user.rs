@@ -24,39 +24,40 @@ impl User {
         Id::new::<Self>(self.0.id)
     }
 
-    async fn slug(&self) -> &String {
-        self.0.slug.as_string()
+    async fn first_name(&self) -> &str {
+        self.0.first_name.as_ref()
+    }
+
+    async fn last_name(&self) -> &str {
+        self.0.last_name.as_ref()
     }
 
     async fn name(&self) -> String {
         self.0.name()
     }
 
-    async fn first_name(&self) -> &String {
-        &self.0.first_name
+    async fn slug(&self) -> &str {
+        self.0.slug.as_ref()
     }
 
-    async fn last_name(&self) -> &String {
-        &self.0.last_name
+    async fn about(&self) -> Option<&str> {
+        let about = self.0.about.as_ref();
+        about.map(AsRef::as_ref)
     }
 
-    async fn about(&self) -> Option<&String> {
-        self.0.about.as_ref()
-    }
-
-    async fn image_url(&self) -> Option<String> {
+    async fn image_url(&self) -> Option<&str> {
         let url = self.0.image_url.as_ref();
-        url.map(ToString::to_string)
+        url.map(AsRef::as_ref)
     }
 
-    async fn email(&self) -> Option<&String> {
+    async fn email(&self) -> Option<&str> {
         let email = self.0.email.as_ref();
-        email.map(|email| email.get().as_string())
+        email.map(|email| email.get().as_ref())
     }
 
-    async fn phone(&self) -> Option<&String> {
+    async fn phone(&self) -> Option<&str> {
         let phone = self.0.phone.as_ref();
-        phone.map(|phone| phone.get().as_string())
+        phone.map(|phone| phone.get().as_ref())
     }
 
     async fn is_admin(&self) -> bool {
@@ -113,7 +114,7 @@ impl UserQueries {
 pub struct UserMutations;
 
 #[derive(Debug, Clone, Hash, InputObject)]
-pub struct CreateUserInput {
+struct CreateUserInput {
     /// The user's first name.
     pub first_name: String,
 

@@ -39,16 +39,16 @@ impl From<UserRepr> for User {
             created_at,
             updated_at,
 
-            firebase_id,
-            slug,
             first_name,
             last_name,
+            slug,
 
             about,
             image_url,
             email,
             phone,
 
+            firebase_id,
             is_admin,
         } = user;
 
@@ -130,16 +130,16 @@ impl TryFrom<User> for UserRepr {
             created_at,
             updated_at,
 
-            firebase_id,
-            slug,
             first_name,
             last_name,
+            slug,
 
             about,
             image_url,
             email,
             phone,
 
+            firebase_id,
             is_admin,
         };
 

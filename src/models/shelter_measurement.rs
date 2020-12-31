@@ -24,6 +24,7 @@ pub struct ShelterMeasurement {
     pub occupied_beds: i32,
     pub total_spots: i32,
     pub total_beds: i32,
+    pub signal_id: Uuid,
 }
 
 impl TryFrom<ShelterMeasurementRepr> for ShelterMeasurement {
@@ -38,6 +39,8 @@ impl TryFrom<ShelterMeasurementRepr> for ShelterMeasurement {
             updated_at,
 
             shelter_id,
+            signal_id,
+
             capacity,
             occupancy,
         } = measurement;
@@ -69,6 +72,7 @@ impl TryFrom<ShelterMeasurementRepr> for ShelterMeasurement {
             occupied_beds,
             total_spots,
             total_beds,
+            signal_id,
         };
 
         Ok(measurement)
@@ -88,6 +92,7 @@ impl TryFrom<ShelterMeasurement> for ShelterMeasurementRepr {
             occupied_beds,
             total_beds,
             total_spots,
+            signal_id,
         } = measurement;
 
         let capacity = ShelterSpace {
@@ -114,6 +119,8 @@ impl TryFrom<ShelterMeasurement> for ShelterMeasurementRepr {
             updated_at,
 
             shelter_id,
+            signal_id,
+
             capacity,
             occupancy,
         };

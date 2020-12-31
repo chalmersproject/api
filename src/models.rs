@@ -25,3 +25,6 @@ pub use shelter::*;
 
 pub mod shelter_measurement;
 pub use shelter_measurement::*;
+
+pub mod signal;
+pub use signal::*;

@@ -1,6 +1,7 @@
 use super::prelude::*;
 
 use models::Shelter as ShelterModel;
+use models::Signal as SignalModel;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Shelter {
@@ -8,8 +9,8 @@ pub struct Shelter {
     pub created_at: DateTime,
     pub updated_at: DateTime,
 
-    pub slug: Slug,
     pub name: String,
+    pub slug: Slug,
 
     pub about: Option<String>,
     pub image_url: Option<Url>,
@@ -90,6 +91,16 @@ pub struct GetShelterRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetShelterResponse {
     pub shelter: Option<Shelter>,
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct GetShelterSignalsRequest {
+    pub shelter_id: Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetShelterSignalsResponse {
+    pub signals: Vec<Signal>,
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
@@ -183,6 +194,34 @@ impl Service {
         let response = GetShelterResponse { shelter };
         Ok(response)
     }
+    pub async fn get_shelter_signals(
+        &self,
+        request: GetShelterSignalsRequest,
+    ) -> Result<GetShelterSignalsResponse> {
+        let GetShelterSignalsRequest { shelter_id } = request;
+
+        let signals: Vec<Signal> = {
+            let pool = self.database.clone();
+            let models = spawn_blocking(move || -> Result<Vec<SignalModel>> {
+                use schema::signals;
+                let conn = pool.get().context("database connection failure")?;
+                signals::table
+                    .filter(signals::shelter_id.eq(shelter_id))
+                    .load(&conn)
+                    .context("failed to load signal model")
+            })
+            .await
+            .unwrap()?;
+            models
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<_>>()
+                .context("failed to decode signal model")?
+        };
+
+        let response = GetShelterSignalsResponse { signals };
+        Ok(response)
+    }
 
     pub async fn list_shelters(
         &self,
@@ -246,8 +285,8 @@ impl Service {
                 created_at,
                 updated_at,
 
-                slug: Slug::new(),
                 name: name.into(),
+                slug: Default::default(),
 
                 about: about.map(Into::into),
                 image_url,

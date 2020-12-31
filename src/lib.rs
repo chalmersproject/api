@@ -37,7 +37,6 @@ mod prelude {
     pub use derive::*;
     pub use lazy_static::lazy_static;
     pub use log::{debug, error, info, trace, warn};
-    pub use number::*;
     pub use regex::Regex;
     pub use serde::{Deserialize, Deserializer, Serialize, Serializer};
     pub use url::Url;

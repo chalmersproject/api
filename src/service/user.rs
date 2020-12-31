@@ -8,16 +8,16 @@ pub struct User {
     pub created_at: DateTime,
     pub updated_at: DateTime,
 
-    pub firebase_id: String,
-    pub slug: Slug,
     pub first_name: String,
     pub last_name: String,
+    pub slug: Slug,
 
     pub about: Option<String>,
     pub image_url: Option<Url>,
     pub email: Option<Verifiable<Email>>,
     pub phone: Option<Verifiable<Phone>>,
 
+    pub firebase_id: String,
     pub is_admin: bool,
 }
 
@@ -49,13 +49,13 @@ pub struct GetUserByFirebaseIdResponse {
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct CreateUserRequest {
-    pub firebase_id: String,
     pub first_name: InputString,
     pub last_name: InputString,
     pub about: Option<InputString>,
     pub image_url: Option<Url>,
     pub email: Option<Verifiable<Email>>,
     pub phone: Option<Verifiable<Phone>>,
+    pub firebase_id: String,
     pub is_admin: bool,
 }
 
@@ -144,13 +144,13 @@ impl Service {
         request: CreateUserRequest,
     ) -> Result<CreateUserResponse> {
         let CreateUserRequest {
-            firebase_id,
             first_name,
             last_name,
             about,
             image_url,
             email,
             phone,
+            firebase_id,
             is_admin,
         } = request;
 
@@ -161,15 +161,20 @@ impl Service {
                 updated_at,
             } = Meta::new();
 
+            let first_name: String = first_name.into();
+            let last_name: String = last_name.into();
+            let name = format!("{} {}", &first_name, &last_name);
+            let slug = Slug::new(&name);
+
             User {
                 id,
                 created_at,
                 updated_at,
 
+                first_name,
+                last_name,
+                slug,
                 firebase_id,
-                slug: Slug::new(),
-                first_name: first_name.into(),
-                last_name: last_name.into(),
 
                 about: about.map(Into::into),
                 image_url,

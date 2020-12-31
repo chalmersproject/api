@@ -8,6 +8,7 @@ table! {
         occupied_beds -> Int4,
         total_spots -> Int4,
         total_beds -> Int4,
+        signal_id -> Uuid,
     }
 }
 
@@ -35,6 +36,19 @@ table! {
 }
 
 table! {
+    signals (id) {
+        id -> Uuid,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        slug -> Text,
+        name -> Text,
+        shelter_id -> Uuid,
+        measure -> Text,
+        secret -> Text,
+    }
+}
+
+table! {
     users (id) {
         id -> Uuid,
         created_at -> Timestamptz,
@@ -54,5 +68,12 @@ table! {
 }
 
 joinable!(shelter_measurements -> shelters (shelter_id));
+joinable!(shelter_measurements -> signals (signal_id));
+joinable!(signals -> shelters (shelter_id));
 
-allow_tables_to_appear_in_same_query!(shelter_measurements, shelters, users,);
+allow_tables_to_appear_in_same_query!(
+    shelter_measurements,
+    shelters,
+    signals,
+    users,
+);
