@@ -62,7 +62,7 @@ impl TryFrom<Signal> for SignalRepr {
             secret,
         } = signal;
 
-        let slug = slug.try_into().context("failed to parese slug")?;
+        let slug = slug.try_into().context("failed to parse slug")?;
         let measure = measure.parse().context("failed to parse measure")?;
 
         let signal = SignalRepr {

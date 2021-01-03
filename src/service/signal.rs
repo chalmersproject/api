@@ -63,7 +63,7 @@ pub struct ListSignalsResponse {
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct CreateSignalRequest {
-    pub name: String,
+    pub name: InputString,
     pub shelter_id: Uuid,
     pub measure: ShelterMeasure,
 }
@@ -167,7 +167,7 @@ impl Service {
                 created_at,
                 updated_at,
 
-                name,
+                name: name.into(),
                 slug: Default::default(),
 
                 shelter_id,

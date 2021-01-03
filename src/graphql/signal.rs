@@ -48,7 +48,7 @@ impl Signal {
         Ok(shelter.into())
     }
 
-    async fn shelter_measure(&self) -> ShelterMeasure {
+    async fn measure(&self) -> ShelterMeasure {
         let measure = self.0.measure.clone();
         measure.into()
     }

@@ -69,5 +69,6 @@ impl FromStr for Slug {
 
 fn generate_tail() -> String {
     let bytes: [u8; 12] = random();
-    encode_base64(bytes, URL_SAFE_NO_PAD)
+    let tail = encode_base64(bytes, URL_SAFE_NO_PAD);
+    tail.replace('_', "-")
 }
