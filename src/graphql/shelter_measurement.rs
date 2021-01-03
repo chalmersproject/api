@@ -1,10 +1,9 @@
 use super::prelude::*;
 
+use service::ShelterMeasurement as ShelterMeasurementRepr;
+
 use service::CreateShelterMeasurementRequest;
 use service::GetSignalRequest;
-
-use service::ShelterMeasurement as ShelterMeasurementRepr;
-use service::ShelterSpace as ShelterSpaceRepr;
 
 #[derive(Debug, Clone, Hash)]
 pub struct ShelterMeasurement(ShelterMeasurementRepr);
@@ -39,7 +38,7 @@ pub struct ShelterMeasurementMutations;
 pub struct MeasureShelterOccupancyInput {
     pub signal_id: Id,
     pub signal_secret: String,
-    pub occupancy: ShelterSpaceInput,
+    pub measurement: u16,
 }
 
 #[derive(Debug, Clone, Hash, SimpleObject)]
@@ -57,14 +56,14 @@ impl ShelterMeasurementMutations {
         let MeasureShelterOccupancyInput {
             signal_id,
             signal_secret,
-            occupancy,
+            measurement,
         } = input;
 
-        let signal_id: Uuid = signal_id
+        // Parse signal ID.
+        let signal_id = signal_id
             .get::<Signal>()
             .context("invalid signal ID")
             .into_field_result()?;
-        let occupancy: ShelterSpaceRepr = occupancy.into();
 
         // Get service.
         let service = get_service(ctx);
@@ -90,7 +89,7 @@ impl ShelterMeasurementMutations {
         let measurement = {
             let request = CreateShelterMeasurementRequest {
                 signal_id,
-                occupancy,
+                measurement,
             };
             let response = service
                 .create_shelter_measurement(request)

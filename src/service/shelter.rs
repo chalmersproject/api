@@ -27,7 +27,7 @@ pub struct Shelter {
     pub tags: Set<ShelterTag>,
 }
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Default, Serialize, Deserialize)]
 pub struct ShelterSpace {
     pub spots: u16,
     pub beds: u16,
@@ -182,7 +182,7 @@ impl Service {
 
         let shelter: Option<Shelter> = {
             let pool = self.database.clone();
-            let model =
+            let shelter =
                 spawn_blocking(move || -> Result<Option<ShelterModel>> {
                     use schema::shelters;
                     let conn =
@@ -195,7 +195,7 @@ impl Service {
                 })
                 .await
                 .unwrap()?;
-            model
+            shelter
                 .map(TryInto::try_into)
                 .transpose()
                 .context("failed to decode shelter model")?
@@ -214,7 +214,7 @@ impl Service {
         let shelter: Option<Shelter> = {
             let pool = self.database.clone();
             let slug = slug.to_string();
-            let model =
+            let shelter =
                 spawn_blocking(move || -> Result<Option<ShelterModel>> {
                     use schema::shelters;
                     let conn =
@@ -227,7 +227,7 @@ impl Service {
                 })
                 .await
                 .unwrap()?;
-            model
+            shelter
                 .map(TryInto::try_into)
                 .transpose()
                 .context("failed to decode shelter model")?
@@ -387,9 +387,10 @@ impl Service {
             tags,
         } = request;
 
-        let mut shelter: Shelter = {
+        // Fetch shelter.
+        let mut shelter = {
             let pool = self.database.clone();
-            let model = spawn_blocking(move || -> Result<ShelterModel> {
+            let shelter = spawn_blocking(move || -> Result<ShelterModel> {
                 use schema::shelters;
                 let conn = pool.get().context("database connection failure")?;
                 shelters::table
@@ -399,13 +400,14 @@ impl Service {
             })
             .await
             .unwrap()?;
-            model.try_into().context("failed to decode shelter model")?
+            Shelter::try_from(shelter)
+                .context("failed to decode shelter model")?
         };
 
+        // Mutate shelter.
         if let Some(name) = name {
             shelter.name = name.into();
         }
-
         if let Some(about) = about {
             shelter.about = about.discard_empty().map(Into::into);
         }
@@ -418,7 +420,6 @@ impl Service {
         if let Some(phone) = phone {
             shelter.phone = phone;
         }
-
         if let Some(url) = website_url {
             shelter.website_url = Some(url);
         }
@@ -428,7 +429,6 @@ impl Service {
         if let Some(location) = location {
             shelter.location = location;
         }
-
         if let Some(space) = capacity {
             shelter.capacity = space
         }
@@ -439,6 +439,7 @@ impl Service {
             shelter.tags = tags;
         }
 
+        // Update shelter model.
         {
             let pool = self.database.clone();
             let shelter = ShelterModel::try_from(shelter.clone())
@@ -447,7 +448,7 @@ impl Service {
                 use schema::shelters;
                 let conn = pool.get().context("database connection failure")?;
                 update(shelters::table.find(shelter_id))
-                    .set(&shelter)
+                    .set(shelter)
                     .execute(&conn)
                     .context("failed to update shelter model")?;
                 Ok(())

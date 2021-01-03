@@ -38,10 +38,10 @@ mod prelude {
 
     impl<T, R> FieldResultExtension<T> for R
     where
-        R: Into<Result<T>>,
+        Result<T>: From<R>,
     {
         fn into_field_result(self) -> FieldResult<T> {
-            let result: Result<T> = self.into();
+            let result = Result::from(self);
             result.map_err(format_error)
         }
     }
@@ -49,17 +49,8 @@ mod prelude {
 
 pub mod extensions;
 
-pub mod query;
-pub use query::*;
-
-pub mod mutation;
-pub use mutation::*;
-
-pub mod meta;
-pub use self::meta::*;
-
-pub mod id;
-pub use id::*;
+pub mod address;
+pub use address::*;
 
 pub mod cursor;
 pub use cursor::*;
@@ -67,11 +58,17 @@ pub use cursor::*;
 pub mod geo;
 pub use self::geo::*;
 
-pub mod address;
-pub use address::*;
+pub mod id;
+pub use id::*;
 
-pub mod user;
-pub use user::*;
+pub mod meta;
+pub use self::meta::*;
+
+pub mod mutation;
+pub use mutation::*;
+
+pub mod query;
+pub use query::*;
 
 pub mod shelter;
 pub use shelter::*;
@@ -81,3 +78,6 @@ pub use shelter_measurement::*;
 
 pub mod signal;
 pub use signal::*;
+
+pub mod user;
+pub use user::*;

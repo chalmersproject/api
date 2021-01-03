@@ -1,4 +1,5 @@
 use super::prelude::*;
+
 use service::Address as AddressRepr;
 
 #[derive(Debug, Clone, Hash, SimpleObject)]

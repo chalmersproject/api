@@ -17,9 +17,6 @@ mod prelude {
     pub use std::io::prelude::*;
 }
 
-pub mod user;
-pub use user::*;
-
 pub mod shelter;
 pub use shelter::*;
 
@@ -28,3 +25,6 @@ pub use shelter_measurement::*;
 
 pub mod signal;
 pub use signal::*;
+
+pub mod user;
+pub use user::*;

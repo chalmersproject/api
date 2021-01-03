@@ -18,32 +18,26 @@ mod prelude {
     pub use tokio::task::spawn_blocking;
 }
 
-mod meta;
-pub use self::meta::*;
-
-mod verifiable;
-pub use verifiable::*;
-
-mod slug;
-pub use self::slug::*;
-
-mod input;
-pub use input::*;
+mod address;
+pub use address::*;
 
 mod email;
 pub use email::*;
 
+mod geo;
+pub use self::geo::*;
+
+mod input;
+pub use input::*;
+
+mod meta;
+pub use self::meta::*;
+
 mod phone;
 pub use phone::*;
 
-mod user;
-pub use user::*;
-
-mod address;
-pub use address::*;
-
-mod geo;
-pub use self::geo::*;
+mod slug;
+pub use self::slug::*;
 
 mod shelter;
 pub use shelter::*;
@@ -53,6 +47,12 @@ pub use shelter_measurement::*;
 
 mod signal;
 pub use signal::*;
+
+mod user;
+pub use user::*;
+
+mod verifiable;
+pub use verifiable::*;
 
 use crate::db::PgPool;
 use crate::prelude::*;

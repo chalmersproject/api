@@ -89,7 +89,7 @@ impl Service {
 
         let user: Option<User> = {
             let pool = self.database.clone();
-            let model = spawn_blocking(move || -> Result<Option<UserModel>> {
+            let user = spawn_blocking(move || -> Result<Option<UserModel>> {
                 use schema::users;
                 let conn = pool.get().context("database connection failure")?;
                 users::table
@@ -100,8 +100,7 @@ impl Service {
             })
             .await
             .unwrap()?;
-            model
-                .map(TryInto::try_into)
+            user.map(TryInto::try_into)
                 .transpose()
                 .context("failed to decode user model")?
         };
@@ -118,7 +117,7 @@ impl Service {
 
         let user: Option<User> = {
             let pool = self.database.clone();
-            let model = spawn_blocking(move || -> Result<Option<UserModel>> {
+            let user = spawn_blocking(move || -> Result<Option<UserModel>> {
                 use schema::users;
                 let conn = pool.get().context("database connection failure")?;
                 users::table
@@ -129,8 +128,7 @@ impl Service {
             })
             .await
             .unwrap()?;
-            model
-                .map(TryInto::try_into)
+            user.map(TryInto::try_into)
                 .transpose()
                 .context("failed to decode user model")?
         };
@@ -161,8 +159,8 @@ impl Service {
                 updated_at,
             } = Meta::new();
 
-            let first_name: String = first_name.into();
-            let last_name: String = last_name.into();
+            let first_name = String::from(first_name);
+            let last_name = String::from(last_name);
             let name = format!("{} {}", &first_name, &last_name);
             let slug = Slug::new(&name);
 
@@ -219,9 +217,9 @@ impl Service {
             phone,
         } = request;
 
-        let mut user: User = {
+        let mut user = {
             let pool = self.database.clone();
-            let model = spawn_blocking(move || -> Result<UserModel> {
+            let user = spawn_blocking(move || -> Result<UserModel> {
                 use schema::users;
                 let conn = pool.get().context("database connection failure")?;
                 users::table
@@ -231,7 +229,7 @@ impl Service {
             })
             .await
             .unwrap()?;
-            model.try_into().context("failed to decode user model")?
+            User::try_from(user).context("failed to decode user model")?
         };
 
         if let Some(name) = first_name {
@@ -261,7 +259,7 @@ impl Service {
                 use schema::users;
                 let conn = pool.get().context("database connection failure")?;
                 update(users::table.find(user_id))
-                    .set(&user)
+                    .set(user)
                     .execute(&conn)
                     .context("failed to update user model")?;
                 Ok(())

@@ -265,7 +265,7 @@ impl ShelterQueries {
         #[graphql(desc = "The slug of the `Shelter` to fetch.")]
         slug: String,
     ) -> FieldResult<Option<Shelter>> {
-        let slug: Slug = slug.try_into().context("invalid slug")?;
+        let slug = Slug::try_from(slug).context("invalid slug")?;
 
         let service = get_service(ctx);
 

@@ -48,8 +48,8 @@ impl FromStr for Id {
         } else {
             bail!("invalid structure");
         };
-        let uuid: Uuid = uuid.parse().context("failed to parse UUID")?;
-        let type_name: Cow<'static, str> = Cow::Owned(type_name.to_owned());
+        let uuid = uuid.parse().context("failed to parse UUID")?;
+        let type_name = Cow::Owned(type_name.to_owned());
 
         Ok(Self { uuid, type_name })
     }

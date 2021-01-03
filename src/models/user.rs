@@ -109,8 +109,7 @@ impl TryFrom<User> for UserRepr {
 
         let email = email
             .map(|email| -> Result<_> {
-                let email: Email = email
-                    .try_into()
+                let email = Email::try_from(email)
                     .context("failed to parse email address")?;
                 let email = Verifiable::new(email, is_email_verified);
                 Ok(email)
@@ -118,8 +117,8 @@ impl TryFrom<User> for UserRepr {
             .transpose()?;
         let phone = phone
             .map(|phone| -> Result<_> {
-                let phone: Phone =
-                    phone.try_into().context("failed to parse phone number")?;
+                let phone = Phone::try_from(phone)
+                    .context("failed to parse phone number")?;
                 let phone = Verifiable::new(phone, is_phone_verified);
                 Ok(phone)
             })

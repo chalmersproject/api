@@ -92,7 +92,7 @@ impl Service {
 
         let signal: Option<Signal> = {
             let pool = self.database.clone();
-            let model =
+            let signal =
                 spawn_blocking(move || -> Result<Option<SignalModel>> {
                     use schema::signals;
                     let conn =
@@ -105,7 +105,7 @@ impl Service {
                 })
                 .await
                 .unwrap()?;
-            model
+            signal
                 .map(TryInto::try_into)
                 .transpose()
                 .context("failed to decode signal model")?
@@ -229,9 +229,9 @@ impl Service {
         }
 
         // Get associated shelter.
-        let shelter: Shelter = {
+        let shelter = {
             let pool = self.database.clone();
-            let model = spawn_blocking(move || -> Result<ShelterModel> {
+            let shelter = spawn_blocking(move || -> Result<ShelterModel> {
                 use schema::{shelters, signals};
                 let conn = pool.get().context("database connection failure")?;
                 let join = shelters::table.inner_join(signals::table);
@@ -242,7 +242,7 @@ impl Service {
             })
             .await
             .unwrap()?;
-            model.try_into().context("failed to decode shelter")?
+            Shelter::try_from(shelter).context("failed to decode shelter")?
         };
 
         // Delete signal.
