@@ -1,6 +1,7 @@
 use super::prelude::*;
 
 use models::Shelter as ShelterModel;
+use models::ShelterMeasurement as ShelterMeasurementModel;
 use models::Signal as SignalModel;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,6 +115,16 @@ pub struct GetShelterSignalsResponse {
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct GetShelterMeasurementRequest {
+    pub measurement_id: Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetShelterMeasurementResponse {
+    pub measurement: Option<ShelterMeasurement>,
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct ListSheltersRequest {
     pub limit: u32,
     pub offset: u32,
@@ -122,6 +133,18 @@ pub struct ListSheltersRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListSheltersResponse {
     pub shelters: Vec<Shelter>,
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct ListShelterMeasurementsRequest {
+    pub shelter_id: Uuid,
+    pub limit: u32,
+    pub offset: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListShelterMeasurementsResponse {
+    pub measurements: Vec<ShelterMeasurement>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -174,14 +197,47 @@ pub struct DeleteShelterRequest {
 pub struct DeleteShelterResponse {}
 
 impl Service {
+    pub(super) async fn can_list_shelters(
+        &self,
+        _context: &Context,
+    ) -> Result<bool> {
+        // Shelters are publicly viewable.
+        Ok(true)
+    }
+
+    pub(super) async fn can_view_shelter(
+        &self,
+        _context: &Context,
+        _shelter_id: Uuid,
+    ) -> Result<bool> {
+        // Shelters are publicly listable.
+        Ok(true)
+    }
+
+    pub(super) async fn can_edit_shelter(
+        &self,
+        context: &Context,
+        _shelter_id: Uuid,
+    ) -> Result<bool> {
+        if context.is_internal() {
+            return Ok(true);
+        }
+
+        // Restrict shelter editing.
+        Ok(false)
+    }
+}
+
+impl Service {
     pub async fn get_shelter(
         &self,
+        context: &Context,
         request: GetShelterRequest,
     ) -> Result<GetShelterResponse> {
         let GetShelterRequest { shelter_id } = request;
 
-        let shelter: Option<Shelter> = {
-            let pool = self.database.clone();
+        let shelter = {
+            let pool = self.db_pool.clone();
             let shelter =
                 spawn_blocking(move || -> Result<Option<ShelterModel>> {
                     use schema::shelters;
@@ -196,10 +252,17 @@ impl Service {
                 .await
                 .unwrap()?;
             shelter
-                .map(TryInto::try_into)
+                .map(Shelter::try_from)
                 .transpose()
                 .context("failed to decode shelter model")?
         };
+
+        // Assert shelter is viewable.
+        if shelter.is_some() {
+            if !self.can_view_shelter(context, shelter_id).await? {
+                bail!("not authorized");
+            };
+        }
 
         let response = GetShelterResponse { shelter };
         Ok(response)
@@ -207,12 +270,13 @@ impl Service {
 
     pub async fn get_shelter_by_slug(
         &self,
+        context: &Context,
         request: GetShelterBySlugRequest,
     ) -> Result<GetShelterBySlugResponse> {
         let GetShelterBySlugRequest { slug } = request;
 
-        let shelter: Option<Shelter> = {
-            let pool = self.database.clone();
+        let shelter = {
+            let pool = self.db_pool.clone();
             let slug = slug.to_string();
             let shelter =
                 spawn_blocking(move || -> Result<Option<ShelterModel>> {
@@ -228,10 +292,17 @@ impl Service {
                 .await
                 .unwrap()?;
             shelter
-                .map(TryInto::try_into)
+                .map(Shelter::try_from)
                 .transpose()
                 .context("failed to decode shelter model")?
         };
+
+        // Assert shelter is viewable.
+        if let Some(shelter) = &shelter {
+            if !self.can_view_shelter(context, shelter.id).await? {
+                bail!("not authorized");
+            };
+        }
 
         let response = GetShelterBySlugResponse { shelter };
         Ok(response)
@@ -239,12 +310,18 @@ impl Service {
 
     pub async fn get_shelter_signals(
         &self,
+        context: &Context,
         request: GetShelterSignalsRequest,
     ) -> Result<GetShelterSignalsResponse> {
         let GetShelterSignalsRequest { shelter_id } = request;
 
+        // Assert shelter is viewable.
+        if !self.can_view_shelter(context, shelter_id).await? {
+            bail!("not authorized");
+        };
+
         let signals: Vec<Signal> = {
-            let pool = self.database.clone();
+            let pool = self.db_pool.clone();
             let models = spawn_blocking(move || -> Result<Vec<SignalModel>> {
                 use schema::signals;
                 let conn = pool.get().context("database connection failure")?;
@@ -268,12 +345,18 @@ impl Service {
 
     pub async fn list_shelters(
         &self,
+        context: &Context,
         request: ListSheltersRequest,
     ) -> Result<ListSheltersResponse> {
         let ListSheltersRequest { limit, offset } = request;
 
-        let shelters: Vec<Shelter> = {
-            let pool = self.database.clone();
+        // Assert shelter is viewable.
+        if !self.can_list_shelters(context).await? {
+            bail!("not authorized");
+        }
+
+        let shelters = {
+            let pool = self.db_pool.clone();
             let models =
                 spawn_blocking(move || -> Result<Vec<ShelterModel>> {
                     use schema::shelters;
@@ -289,8 +372,8 @@ impl Service {
                 .unwrap()?;
             models
                 .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<_>>()
+                .map(Shelter::try_from)
+                .collect::<Result<Vec<_>>>()
                 .context("failed to decode shelter models")?
         };
 
@@ -298,8 +381,54 @@ impl Service {
         Ok(response)
     }
 
+    pub async fn list_shelter_measurements(
+        &self,
+        context: &Context,
+        request: ListShelterMeasurementsRequest,
+    ) -> Result<ListShelterMeasurementsResponse> {
+        let ListShelterMeasurementsRequest {
+            shelter_id,
+            limit,
+            offset,
+        } = request;
+
+        // Assert shelter is viewable.
+        if !self.can_view_shelter(context, shelter_id).await? {
+            bail!("not authorized");
+        }
+
+        // List measurements.
+        let measurements = {
+            let pool = self.db_pool.clone();
+            let models = spawn_blocking(
+                move || -> Result<Vec<ShelterMeasurementModel>> {
+                    use schema::shelter_measurements as measurements;
+                    let conn =
+                        pool.get().context("database connection failure")?;
+                    measurements::table
+                        .filter(measurements::shelter_id.eq(shelter_id))
+                        .limit(limit.into())
+                        .offset(offset.into())
+                        .load(&conn)
+                        .context("failed to load shelter measurement models")
+                },
+            )
+            .await
+            .unwrap()?;
+            models
+                .into_iter()
+                .map(ShelterMeasurement::try_from)
+                .collect::<Result<Vec<_>>>()
+                .context("failed to decode shelter measurement models")?
+        };
+
+        let response = ListShelterMeasurementsResponse { measurements };
+        Ok(response)
+    }
+
     pub async fn create_shelter(
         &self,
+        context: &Context,
         request: CreateShelterRequest,
     ) -> Result<CreateShelterResponse> {
         let CreateShelterRequest {
@@ -316,6 +445,12 @@ impl Service {
             tags,
         } = request;
 
+        // Restrict shelter creation.
+        if !context.is_internal() {
+            bail!("not authorized");
+        }
+
+        // Create shelter.
         let shelter = {
             let Meta {
                 id,
@@ -347,8 +482,9 @@ impl Service {
             }
         };
 
+        // Create shelter in database.
         {
-            let pool = self.database.clone();
+            let pool = self.db_pool.clone();
             let shelter = ShelterModel::try_from(shelter.clone())
                 .context("failed to encode shelter")?;
             spawn_blocking(move || -> Result<()> {
@@ -370,6 +506,7 @@ impl Service {
 
     pub async fn update_shelter(
         &self,
+        context: &Context,
         request: UpdateShelterRequest,
     ) -> Result<UpdateShelterResponse> {
         let UpdateShelterRequest {
@@ -387,21 +524,20 @@ impl Service {
             tags,
         } = request;
 
+        // Assert shelter is editable.
+        if !self.can_edit_shelter(context, shelter_id).await? {
+            bail!("not authorized");
+        };
+
         // Fetch shelter.
         let mut shelter = {
-            let pool = self.database.clone();
-            let shelter = spawn_blocking(move || -> Result<ShelterModel> {
-                use schema::shelters;
-                let conn = pool.get().context("database connection failure")?;
-                shelters::table
-                    .find(shelter_id)
-                    .first(&conn)
-                    .context("failed to load shelter model")
-            })
-            .await
-            .unwrap()?;
-            Shelter::try_from(shelter)
-                .context("failed to decode shelter model")?
+            let context = context.internal();
+            let request = GetShelterRequest { shelter_id };
+            let response = self
+                .get_shelter(&context, request)
+                .await
+                .context("failed to get shelter")?;
+            response.shelter.context("shelter not found")?
         };
 
         // Mutate shelter.
@@ -439,9 +575,9 @@ impl Service {
             shelter.tags = tags;
         }
 
-        // Update shelter model.
+        // Update shelter in database.
         {
-            let pool = self.database.clone();
+            let pool = self.db_pool.clone();
             let shelter = ShelterModel::try_from(shelter.clone())
                 .context("failed to encode shelter")?;
             spawn_blocking(move || -> Result<()> {
@@ -463,12 +599,19 @@ impl Service {
 
     pub async fn delete_shelter(
         &self,
+        context: &Context,
         request: DeleteShelterRequest,
     ) -> Result<DeleteShelterResponse> {
         let DeleteShelterRequest { shelter_id } = request;
 
+        // Assert shelter is editable.
+        if !self.can_edit_shelter(context, shelter_id).await? {
+            bail!("not authorized");
+        };
+
+        // Delete shelter in database.
         {
-            let pool = self.database.clone();
+            let pool = self.db_pool.clone();
             spawn_blocking(move || -> Result<()> {
                 use schema::shelters;
                 let conn = pool.get().context("database connection failure")?;

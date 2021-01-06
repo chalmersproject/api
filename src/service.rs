@@ -21,6 +21,9 @@ mod prelude {
 mod address;
 pub use address::*;
 
+mod context;
+pub use context::*;
+
 mod email;
 pub use email::*;
 
@@ -63,7 +66,7 @@ use crate::prelude::*;
 #[derive(Builder)]
 #[builder(build_fn(name = "build_internal", private))]
 pub struct Service {
-    database: PgPool,
+    db_pool: PgPool,
 }
 
 impl Service {

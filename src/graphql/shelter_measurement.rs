@@ -1,9 +1,7 @@
 use super::prelude::*;
 
+use service::GetShelterMeasurementRequest;
 use service::ShelterMeasurement as ShelterMeasurementRepr;
-
-use service::CreateShelterMeasurementRequest;
-use service::GetSignalRequest;
 
 #[derive(Debug, Clone, Hash)]
 pub struct ShelterMeasurement(ShelterMeasurementRepr);
@@ -32,77 +30,39 @@ impl ShelterMeasurement {
 }
 
 #[derive(Debug, Clone, Hash)]
-pub struct ShelterMeasurementMutations;
-
-#[derive(Debug, Clone, Hash, InputObject)]
-pub struct MeasureShelterOccupancyInput {
-    pub signal_id: Id,
-    pub signal_secret: String,
-    pub measurement: u16,
-}
-
-#[derive(Debug, Clone, Hash, SimpleObject)]
-pub struct MeasureShelterOccupancyPayload {
-    pub measurement: ShelterMeasurement,
-}
+pub struct ShelterMeasurementQueries;
 
 #[Object]
-impl ShelterMeasurementMutations {
-    async fn measure_shelter_occupancy(
+impl ShelterMeasurementQueries {
+    /// Get a `ShelterMeasurement` by its `ID`.
+    async fn shelter_measurement(
         &self,
-        ctx: &Context<'_>,
-        input: MeasureShelterOccupancyInput,
-    ) -> FieldResult<MeasureShelterOccupancyPayload> {
-        let MeasureShelterOccupancyInput {
-            signal_id,
-            signal_secret,
-            measurement,
-        } = input;
 
-        // Parse signal ID.
-        let signal_id = signal_id
-            .get::<Signal>()
-            .context("invalid signal ID")
-            .into_field_result()?;
+        ctx: &Context<'_>,
+
+        #[rustfmt::skip]
+        #[graphql(desc = "The `ID` of the `ShelterMeasurement` to fetch.")]
+        id: Id,
+    ) -> FieldResult<Option<ShelterMeasurement>> {
+        // Parse measurement ID.
+        let measurement_id = id
+            .get::<ShelterMeasurement>()
+            .context("invalid shelter measurement ID")?;
 
         // Get service.
-        let service = get_service(ctx);
+        let (service, context) = get_service(ctx);
 
-        // Get signal.
-        let signal = {
-            let request = GetSignalRequest { signal_id };
-            let response = service
-                .get_signal(request)
-                .await
-                .context("failed to get signal")
-                .into_field_result()?;
-            response.signal.context("signal not found")?
-        };
-
-        // Confirm authorization via signal secret.
-        if signal.secret != signal_secret {
-            let error = FieldError::new("not authorized");
-            return Err(error);
-        }
-
-        // Create measurement.
+        // Request shelter from service.
         let measurement = {
-            let request = CreateShelterMeasurementRequest {
-                signal_id,
-                measurement,
-            };
+            let request = GetShelterMeasurementRequest { measurement_id };
             let response = service
-                .create_shelter_measurement(request)
+                .get_shelter_measurement(context, request)
                 .await
-                .context("failed to create measurement")
                 .into_field_result()?;
             response.measurement
         };
 
-        // Respond with payload.
-        let payload = MeasureShelterOccupancyPayload {
-            measurement: measurement.into(),
-        };
-        Ok(payload)
+        // Return shelter object.
+        Ok(measurement.map(Into::into))
     }
 }

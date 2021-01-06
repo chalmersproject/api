@@ -1,6 +1,5 @@
 use super::prelude::*;
 
-use models::Shelter as ShelterModel;
 use models::ShelterMeasurement as ShelterMeasurementModel;
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
@@ -17,120 +16,144 @@ pub struct ShelterMeasurement {
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct CreateShelterMeasurementRequest {
-    pub signal_id: Uuid,
-    pub measurement: u16,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateShelterMeasurementResponse {
-    pub shelter: Shelter,
-    pub measurement: ShelterMeasurement,
+struct ShelterMeasurementRelations {
+    shelter_id: Uuid,
+    signal_id: Uuid,
 }
 
 impl Service {
-    pub async fn create_shelter_measurement(
+    async fn internal_get_shelter_measurement_relations(
         &self,
-        request: CreateShelterMeasurementRequest,
-    ) -> Result<CreateShelterMeasurementResponse> {
-        let CreateShelterMeasurementRequest {
-            signal_id,
-            measurement,
-        } = request;
-
-        // Fetch signal.
-        let signal = {
-            let request = GetSignalRequest { signal_id };
-            let response = self
-                .get_signal(request)
-                .await
-                .context("failed to get signal")?;
-            response.signal.context("signal not found")?
-        };
-
-        // Fetch shelter.
-        let shelter_id = signal.shelter_id;
-        let mut shelter = {
-            let request = GetShelterRequest { shelter_id };
-            let response = self
-                .get_shelter(request)
-                .await
-                .context("failed to get shelter")?;
-            response.shelter.context("shelter not found")?
-        };
-
-        // Create capacity and occupancy snapshots.
-        let capacity = shelter.capacity.to_owned();
-        let occupancy = {
-            let occupancy = shelter.occupancy.to_owned().unwrap_or_default();
-            match signal.measure {
-                ShelterMeasure::Spots => ShelterSpace {
-                    spots: measurement,
-                    ..occupancy
-                },
-                ShelterMeasure::Beds => ShelterSpace {
-                    beds: measurement,
-                    ..occupancy
-                },
-            }
-        };
-
-        // Mutate shelter occupancy.
-        shelter.occupancy = Some(occupancy.clone());
-
-        // Create measurement.
-        let measurement = {
-            let Meta {
-                id,
-                created_at,
-                updated_at,
-            } = Meta::new();
-
-            ShelterMeasurement {
-                id,
-                created_at,
-                updated_at,
-
-                shelter_id: shelter.id,
-                signal_id,
-
-                capacity,
-                occupancy,
-            }
-        };
-
-        // Update models.
-        {
-            let pool = self.database.clone();
-            let shelter = ShelterModel::try_from(shelter.clone())
-                .context("failed to encode shelter")?;
-            let measurement =
-                ShelterMeasurementModel::try_from(measurement.clone())
-                    .context("failed to encode measurement")?;
-            spawn_blocking(move || -> Result<()> {
-                use schema::shelter_measurements as measurements;
-                use schema::shelters;
-                let conn = pool.get().context("database connection failure")?;
-                conn.transaction(|| {
-                    update(shelters::table.find(shelter_id))
-                        .set(shelter)
-                        .execute(&conn)
-                        .context("failed to insert shelter model")?;
-                    insert_into(measurements::table)
-                        .values(measurement)
-                        .execute(&conn)
-                        .context("failed to insert measurement model")?;
-                    Ok(())
+        measurement_id: Uuid,
+    ) -> Result<ShelterMeasurementRelations> {
+        let relations = {
+            let pool = self.db_pool.clone();
+            let (shelter_id, signal_id) =
+                spawn_blocking(move || -> Result<(Uuid, Uuid)> {
+                    use schema::shelter_measurements as measurements;
+                    let conn =
+                        pool.get().context("database connection failure")?;
+                    measurements::table
+                        .find(measurement_id)
+                        .select((
+                            measurements::shelter_id,
+                            measurements::signal_id,
+                        ))
+                        .first(&conn)
+                        .context("failed to load shelter measurement model")
                 })
-            })
-            .await
-            .unwrap()?
+                .await
+                .unwrap()?;
+            ShelterMeasurementRelations {
+                shelter_id,
+                signal_id,
+            }
         };
 
-        let response = CreateShelterMeasurementResponse {
-            shelter,
-            measurement,
+        Ok(relations)
+    }
+
+    pub(super) async fn can_view_shelter_measurement(
+        &self,
+        context: &Context,
+        measurement_id: Uuid,
+    ) -> Result<bool> {
+        if context.is_internal() {
+            return Ok(true);
+        }
+
+        let relations = self
+            .internal_get_shelter_measurement_relations(measurement_id)
+            .await?;
+
+        let ShelterMeasurementRelations {
+            shelter_id,
+            signal_id,
+        } = relations;
+
+        // Shelters measurements can be viewed if either its shelter or its
+        // signal can be viewed.
+        if self.can_view_shelter(context, shelter_id).await? {
+            return Ok(true);
+        }
+        if self.can_view_signal(context, signal_id).await? {
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    // pub(super) async fn _can_edit_shelter_measurement(
+    //     &self,
+    //     context: &Context,
+    //     measurement_id: Uuid,
+    // ) -> Result<bool> {
+    //     if context.is_internal() {
+    //         return Ok(true);
+    //     }
+
+    //     let relations = self
+    //         .internal_get_shelter_measurement_relations(measurement_id)
+    //         .await?;
+
+    //     let ShelterMeasurementRelations {
+    //         shelter_id,
+    //         signal_id,
+    //     } = relations;
+
+    //     // Shelters measurements can be edited if its shelter and signal
+    //     // can be edited.
+    //     if !self.can_edit_shelter(context, shelter_id).await? {
+    //         return Ok(false);
+    //     }
+    //     if !self.can_edit_signal(context, signal_id).await? {
+    //         return Ok(false);
+    //     }
+    //     Ok(true)
+    // }
+}
+
+impl Service {
+    pub async fn get_shelter_measurement(
+        &self,
+        context: &Context,
+        request: GetShelterMeasurementRequest,
+    ) -> Result<GetShelterMeasurementResponse> {
+        let GetShelterMeasurementRequest { measurement_id } = request;
+
+        let measurement = {
+            let pool = self.db_pool.clone();
+            let measurement = spawn_blocking(
+                move || -> Result<Option<ShelterMeasurementModel>> {
+                    use schema::shelter_measurements as measurements;
+                    let conn =
+                        pool.get().context("database connection failure")?;
+                    measurements::table
+                        .find(measurement_id)
+                        .first(&conn)
+                        .optional()
+                        .context("failed to load shelter measurement model")
+                },
+            )
+            .await
+            .unwrap()?;
+            measurement
+                .map(ShelterMeasurement::try_from)
+                .transpose()
+                .context("failed to decode shelter measurement model")?
         };
+
+        // Assert shelter is viewable.
+        if measurement.is_some() {
+            if !self
+                .can_view_shelter_measurement(context, measurement_id)
+                .await?
+            {
+                bail!("not authorized");
+            };
+        }
+
+        let response = GetShelterMeasurementResponse { measurement };
         Ok(response)
     }
 }

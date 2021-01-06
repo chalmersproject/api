@@ -1,5 +1,4 @@
 use super::prelude::*;
-use crate::meta::BuildInfo;
 
 /// Build-time metadata.
 #[derive(Debug, Clone, SimpleObject)]
@@ -25,12 +24,4 @@ impl MetaQueries {
         let build = ctx.data_unchecked::<BuildInfo>().to_owned();
         Ok(build.into())
     }
-}
-
-pub fn get_service<'a>(ctx: &'a Context<'_>) -> &'a Service {
-    ctx.data_unchecked()
-}
-
-pub fn get_auth<'a>(ctx: &'a Context<'_>) -> Option<&'a AuthInfo> {
-    ctx.data_opt()
 }

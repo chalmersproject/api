@@ -1,6 +1,7 @@
 use super::prelude::*;
 
 use service::Signal as SignalRepr;
+use service::SignalProfile;
 
 #[derive(
     Debug, Clone, Serialize, Deserialize, Queryable, Insertable, AsChangeset,
@@ -77,6 +78,40 @@ impl TryFrom<Signal> for SignalRepr {
             measure,
 
             secret,
+        };
+
+        Ok(signal)
+    }
+}
+
+impl TryFrom<Signal> for SignalProfile {
+    type Error = Error;
+
+    fn try_from(signal: Signal) -> Result<Self, Self::Error> {
+        let Signal {
+            id,
+            created_at,
+            updated_at,
+            slug,
+            name,
+            shelter_id,
+            measure,
+            ..
+        } = signal;
+
+        let slug = slug.try_into().context("failed to parse slug")?;
+        let measure = measure.parse().context("failed to parse measure")?;
+
+        let signal = SignalProfile {
+            id,
+            created_at,
+            updated_at,
+
+            name,
+            slug,
+
+            shelter_id,
+            measure,
         };
 
         Ok(signal)

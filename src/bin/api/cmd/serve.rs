@@ -108,19 +108,21 @@ pub struct ServeCli {
 
 pub fn serve(ctx: Context, cli: ServeCli) -> Result<()> {
     let Context { build } = ctx;
-    let database = {
+    let db_pool = {
         let ServeCli {
             database_url: url,
             database_max_connections: max_connections,
             ..
         } = &cli;
-        connect_database(url, max_connections.to_owned())
+        connect_db_pool(url, max_connections.to_owned())
             .context("failed to connect to database")?
     };
+
     let service = Service::builder()
-        .database(database)
+        .db_pool(db_pool)
         .build()
         .context("failed to initialize service")?;
+    let service = Arc::new(service);
 
     let schema = {
         let query = Query::new();
@@ -130,7 +132,7 @@ pub fn serve(ctx: Context, cli: ServeCli) -> Result<()> {
         let mut schema = Schema::build(query, mutation, subscription)
             .extension(LoggingExtension)
             .data(build)
-            .data(service);
+            .data(service.clone());
         if cli.trace {
             info!("using Apollo Tracing extension");
             schema = schema.extension(TracingExtension);
@@ -149,6 +151,7 @@ pub fn serve(ctx: Context, cli: ServeCli) -> Result<()> {
     let graphql = warp_path("graphql").and(graphql_route(
         schema,
         runtime.clone(),
+        service,
         verifier,
     ));
     let healthz = warp_path("healthz").and(healthz_route());
@@ -180,7 +183,7 @@ pub fn serve(ctx: Context, cli: ServeCli) -> Result<()> {
     Ok(())
 }
 
-fn connect_database(url: &str, max_connections: Option<u32>) -> Result<PgPool> {
+fn connect_db_pool(url: &str, max_connections: Option<u32>) -> Result<PgPool> {
     let manager = {
         let manager = DbConnectionManager::new(url);
         let mut conn = manager.connect()?;

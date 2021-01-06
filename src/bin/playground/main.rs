@@ -38,21 +38,22 @@ pub fn main() -> Result<()> {
     load_env().context("load environment variables")?;
 
     let cli = Cli::parse();
-    let database = {
+    let db_pool = {
         let Cli {
             database_url: url,
             database_max_connections: max_connections,
         } = &cli;
-        connect_database(url, max_connections.to_owned())
+        connect_db_pool(url, max_connections.to_owned())
             .context("failed to connect to database")?
     };
     let service = Service::builder()
-        .database(database)
+        .db_pool(db_pool)
         .build()
         .context("failed to initialize service")?;
 
     let runtime = Runtime::new().context("failed to initialize runtime")?;
     runtime.block_on(async move {
+        let context = Context::default();
         let request = {
             let firebase_id = "fake-firebase-id";
             let first_name = "Steven";
@@ -76,9 +77,8 @@ pub fn main() -> Result<()> {
                 is_admin,
             }
         };
-
         let response = service
-            .create_user(request)
+            .create_user(&context, request)
             .await
             .context("failed to create user")?;
 
@@ -89,7 +89,7 @@ pub fn main() -> Result<()> {
     })
 }
 
-fn connect_database(url: &str, max_connections: Option<u32>) -> Result<PgPool> {
+fn connect_db_pool(url: &str, max_connections: Option<u32>) -> Result<PgPool> {
     let manager = {
         let manager = DbConnectionManager::new(url);
         let mut conn = manager.connect()?;

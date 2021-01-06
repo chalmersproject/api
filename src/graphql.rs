@@ -1,6 +1,7 @@
 mod prelude {
     pub use crate::service;
-    pub use crate::service::Service;
+    pub use service::Context as ServiceContext;
+    pub use service::Service;
 
     pub use crate::auth::AuthInfo;
     pub use crate::db::*;
@@ -51,6 +52,9 @@ pub mod extensions;
 
 pub mod address;
 pub use address::*;
+
+pub mod context;
+pub use context::*;
 
 pub mod cursor;
 pub use cursor::*;

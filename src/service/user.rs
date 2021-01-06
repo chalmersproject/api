@@ -38,6 +38,16 @@ pub struct GetUserResponse {
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct GetUserBySlugRequest {
+    pub slug: Slug,
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct GetUserBySlugResponse {
+    pub user: Option<User>,
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct GetUserByFirebaseIdRequest {
     pub firebase_id: String,
 }
@@ -81,14 +91,58 @@ pub struct UpdateUserResponse {
 }
 
 impl Service {
+    pub(super) async fn can_view_user(
+        &self,
+        context: &Context,
+        user_id: Uuid,
+    ) -> Result<bool> {
+        if context.is_internal() {
+            return Ok(true);
+        }
+
+        // Account editors can view.
+        if self.can_edit_user(context, user_id).await? {
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    pub(super) async fn can_edit_user(
+        &self,
+        context: &Context,
+        user_id: Uuid,
+    ) -> Result<bool> {
+        if context.is_internal() {
+            return Ok(true);
+        }
+
+        // Require authentication.
+        let viewer = if let Some(user) = context.viewing_user() {
+            user
+        } else {
+            return Ok(false);
+        };
+
+        // Viewer can edit themselves.
+        if viewer.id == user_id {
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+}
+
+impl Service {
     pub async fn get_user(
         &self,
+        context: &Context,
         request: GetUserRequest,
     ) -> Result<GetUserResponse> {
         let GetUserRequest { user_id } = request;
 
-        let user: Option<User> = {
-            let pool = self.database.clone();
+        let user = {
+            let pool = self.db_pool.clone();
             let user = spawn_blocking(move || -> Result<Option<UserModel>> {
                 use schema::users;
                 let conn = pool.get().context("database connection failure")?;
@@ -100,23 +154,68 @@ impl Service {
             })
             .await
             .unwrap()?;
-            user.map(TryInto::try_into)
+            user.map(User::try_from)
                 .transpose()
                 .context("failed to decode user model")?
         };
+
+        // Assert user is viewable.
+        if user.is_some() {
+            if !self.can_view_user(context, user_id).await? {
+                bail!("not authorized");
+            };
+        }
 
         let response = GetUserResponse { user };
         Ok(response)
     }
 
+    pub async fn get_user_by_slug(
+        &self,
+        context: &Context,
+        request: GetUserBySlugRequest,
+    ) -> Result<GetUserBySlugResponse> {
+        let GetUserBySlugRequest { slug } = request;
+
+        let user = {
+            let pool = self.db_pool.clone();
+            let slug = String::from(slug);
+            let user = spawn_blocking(move || -> Result<Option<UserModel>> {
+                use schema::users;
+                let conn = pool.get().context("database connection failure")?;
+                users::table
+                    .filter(users::slug.eq(slug))
+                    .first(&conn)
+                    .optional()
+                    .context("failed to load user model")
+            })
+            .await
+            .unwrap()?;
+            user.map(User::try_from)
+                .transpose()
+                .context("failed to decode user model")?
+        };
+
+        // Assert user is viewable.
+        if let Some(user) = &user {
+            if !self.can_view_user(context, user.id).await? {
+                bail!("not authorized");
+            };
+        }
+
+        let response = GetUserBySlugResponse { user };
+        Ok(response)
+    }
+
     pub async fn get_user_by_firebase_id(
         &self,
+        context: &Context,
         request: GetUserByFirebaseIdRequest,
     ) -> Result<GetUserByFirebaseIdResponse> {
         let GetUserByFirebaseIdRequest { firebase_id } = request;
 
-        let user: Option<User> = {
-            let pool = self.database.clone();
+        let user = {
+            let pool = self.db_pool.clone();
             let user = spawn_blocking(move || -> Result<Option<UserModel>> {
                 use schema::users;
                 let conn = pool.get().context("database connection failure")?;
@@ -128,10 +227,17 @@ impl Service {
             })
             .await
             .unwrap()?;
-            user.map(TryInto::try_into)
+            user.map(User::try_from)
                 .transpose()
                 .context("failed to decode user model")?
         };
+
+        // Assert user is viewable.
+        if let Some(user) = &user {
+            if !self.can_view_user(context, user.id).await? {
+                bail!("not authorized");
+            }
+        }
 
         let response = GetUserByFirebaseIdResponse { user };
         Ok(response)
@@ -139,6 +245,7 @@ impl Service {
 
     pub async fn create_user(
         &self,
+        _context: &Context,
         request: CreateUserRequest,
     ) -> Result<CreateUserResponse> {
         let CreateUserRequest {
@@ -152,6 +259,7 @@ impl Service {
             is_admin,
         } = request;
 
+        // Create user.
         let user = {
             let Meta {
                 id,
@@ -184,10 +292,10 @@ impl Service {
         };
 
         {
-            let pool = self.database.clone();
+            let pool = self.db_pool.clone();
             let user = UserModel::from(user.clone());
             spawn_blocking(move || -> Result<()> {
-                use crate::schema::users;
+                use schema::users;
                 let conn = pool.get().context("database connection failure")?;
                 insert_into(users::table)
                     .values(user)
@@ -205,6 +313,7 @@ impl Service {
 
     pub async fn update_user(
         &self,
+        context: &Context,
         request: UpdateUserRequest,
     ) -> Result<UpdateUserResponse> {
         let UpdateUserRequest {
@@ -217,8 +326,14 @@ impl Service {
             phone,
         } = request;
 
+        // Assert user is editable.
+        if self.can_edit_user(context, user_id).await? {
+            bail!("not authorized");
+        }
+
+        // Fetch user.
         let mut user = {
-            let pool = self.database.clone();
+            let pool = self.db_pool.clone();
             let user = spawn_blocking(move || -> Result<UserModel> {
                 use schema::users;
                 let conn = pool.get().context("database connection failure")?;
@@ -251,8 +366,9 @@ impl Service {
             user.phone = Some(phone);
         }
 
+        // Update user in database.
         {
-            let pool = self.database.clone();
+            let pool = self.db_pool.clone();
             let user = UserModel::try_from(user.clone())
                 .context("failed to encode user")?;
             spawn_blocking(move || -> Result<()> {

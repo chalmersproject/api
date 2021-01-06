@@ -6,6 +6,8 @@ use service::Verifiable;
 
 use service::CreateUserRequest;
 use service::GetUserByFirebaseIdRequest;
+use service::GetUserBySlugRequest;
+use service::GetUserRequest;
 use service::UpdateUserRequest;
 
 #[derive(Debug, Clone, Hash)]
@@ -86,7 +88,7 @@ pub struct UserQueries;
 impl UserQueries {
     /// Get the currently authenticated `User`.
     async fn viewer(&self, ctx: &Context<'_>) -> FieldResult<Option<User>> {
-        let service = get_service(ctx);
+        let (service, context) = get_service(ctx);
 
         // If not authenticated, return None.
         let auth = match get_auth(ctx) {
@@ -99,7 +101,7 @@ impl UserQueries {
         let viewer = {
             let request = GetUserByFirebaseIdRequest { firebase_id };
             let response = service
-                .get_user_by_firebase_id(request)
+                .get_user_by_firebase_id(context, request)
                 .await
                 .into_field_result()?;
             response.user
@@ -107,6 +109,66 @@ impl UserQueries {
 
         // Return viewer object.
         Ok(viewer.map(Into::into))
+    }
+
+    /// Fetch a `User` by their `ID`.
+    async fn user(
+        &self,
+
+        ctx: &Context<'_>,
+
+        #[rustfmt::skip]
+        #[graphql(desc = "The `ID` of the `User` to fetch.")]
+        id: Id,
+    ) -> FieldResult<Option<User>> {
+        // Parse user ID.
+        let user_id = id
+            .get::<User>()
+            .context("invalid user ID")
+            .into_field_result()?;
+
+        // Get service.
+        let (service, context) = get_service(ctx);
+
+        // Get user from service.
+        let user = {
+            let request = GetUserRequest { user_id };
+            let response = service
+                .get_user(&context, request)
+                .await
+                .into_field_result()?;
+            response.user
+        };
+
+        Ok(user.map(Into::into))
+    }
+
+    /// Fetch a `User` by their slug.
+    async fn user_by_slug(
+        &self,
+        ctx: &Context<'_>,
+        slug: String,
+    ) -> FieldResult<Option<User>> {
+        // Parse slug.
+        let slug = slug
+            .try_into()
+            .context("invalid slug")
+            .into_field_result()?;
+
+        // Get service.
+        let (service, context) = get_service(ctx);
+
+        // Get user from service.
+        let user = {
+            let request = GetUserBySlugRequest { slug };
+            let response = service
+                .get_user_by_slug(context, request)
+                .await
+                .into_field_result()?;
+            response.user
+        };
+
+        Ok(user.map(Into::into))
     }
 }
 
@@ -176,7 +238,7 @@ impl UserMutations {
         };
 
         // Get service.
-        let service = get_service(ctx);
+        let (service, context) = get_service(ctx);
 
         // Create user in service.
         let user = {
@@ -217,8 +279,10 @@ impl UserMutations {
                     is_admin: false,
                 }
             };
-            let response =
-                service.create_user(request).await.into_field_result()?;
+            let response = service
+                .create_user(context, request)
+                .await
+                .into_field_result()?;
             response.user
         };
 
@@ -240,9 +304,6 @@ impl UserMutations {
             image_url,
         } = input;
 
-        // Get service.
-        let service = get_service(ctx);
-
         // Get auth claims.
         let AuthClaims {
             email,
@@ -255,10 +316,13 @@ impl UserMutations {
             auth.claims()
         };
 
+        // Get service.
+        let (service, context) = get_service(ctx);
+
         // Get authenticated user.
-        let viewer = get_viewer(ctx)
-            .await
-            .context("failed to get authenticated user")
+        let viewer = context
+            .viewing_user()
+            .context("not authenticated")
             .into_field_result()?;
 
         // Update authenticated user in service.
@@ -306,34 +370,14 @@ impl UserMutations {
                     phone: None,
                 }
             };
-            let response =
-                service.update_user(request).await.into_field_result()?;
+            let response = service
+                .update_user(context, request)
+                .await
+                .into_field_result()?;
             response.user
         };
 
         let payload = UpdateUserPayload { user: user.into() };
         Ok(payload)
-    }
-}
-
-pub async fn get_viewer(ctx: &Context<'_>) -> Result<UserRepr> {
-    // Get auth info.
-    let auth = get_auth(ctx).context("not authenticated")?;
-    let firebase_id = auth.claims().user_id.to_owned();
-
-    // Get service.
-    let service = get_service(ctx);
-
-    // Get authenticated user from service.
-    let user = {
-        let request = GetUserByFirebaseIdRequest { firebase_id };
-        let response = service.get_user_by_firebase_id(request).await?;
-        response.user
-    };
-
-    // If user is None, they didn't register for an account.
-    match user {
-        Some(user) => Ok(user),
-        None => Err(format_err!("not registered")),
     }
 }

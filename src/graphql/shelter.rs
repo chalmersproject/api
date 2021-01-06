@@ -1,16 +1,18 @@
 use super::prelude::*;
 
+use service::Slug;
+
 use service::Shelter as ShelterRepr;
 use service::ShelterFood as ShelterFoodRepr;
 use service::ShelterSpace as ShelterSpaceRepr;
 use service::ShelterTag as ShelterTagRepr;
-use service::Slug;
 
 use service::CreateShelterRequest;
 use service::DeleteShelterRequest;
 use service::GetShelterBySlugRequest;
 use service::GetShelterRequest;
 use service::GetShelterSignalsRequest;
+use service::ListShelterMeasurementsRequest;
 use service::ListSheltersRequest;
 use service::UpdateShelterRequest;
 
@@ -91,36 +93,65 @@ impl Shelter {
     }
 
     async fn signals(&self, ctx: &Context<'_>) -> FieldResult<Vec<Signal>> {
-        // Get viewer.
-        let viewer = get_viewer(ctx)
-            .await
-            .context("failed to get viewer")
-            .into_field_result()?;
-
-        // Only admins can view signals.
-        if !viewer.is_admin {
-            let error = FieldError::new("not authorized");
-            return Err(error);
-        }
-
         // Get service.
-        let service = get_service(ctx);
+        let (service, context) = get_service(ctx);
 
         // Get corresponding signals.
         let signals = {
+            let context = context.internal();
             let request = GetShelterSignalsRequest {
                 shelter_id: self.0.id,
             };
             let response = service
-                .get_shelter_signals(request)
+                .get_shelter_signals(&context, request)
                 .await
                 .into_field_result()?;
             response.signals
         };
 
-        // Respond with signal objects.
         let signals = signals.into_iter().map(Into::into).collect();
         Ok(signals)
+    }
+
+    async fn measurements(
+        &self,
+        ctx: &Context<'_>,
+
+        // TODO: Use `default` instead of `default_with` once
+        // https://github.com/async-graphql/async-graphql/issues/361
+        // is resolved.
+        #[rustfmt::skip]
+        #[graphql(
+            desc = "The maximum number of `ShelterMeasurement`s to fetch.",
+            default_with = "25"
+        )]
+        limit: u32,
+
+        #[rustfmt::skip]
+        #[graphql(
+            desc = "The number of initial `ShelterMeasurement`s to skip.",
+            default
+        )]
+        offset: u32,
+    ) -> FieldResult<Vec<ShelterMeasurement>> {
+        let (service, context) = get_service(ctx);
+
+        let measurements = {
+            let context = context.internal();
+            let request = ListShelterMeasurementsRequest {
+                shelter_id: self.0.id,
+                limit,
+                offset,
+            };
+            let response = service
+                .list_shelter_measurements(&context, request)
+                .await
+                .into_field_result()?;
+            response.measurements
+        };
+
+        let measurements = measurements.into_iter().map(Into::into).collect();
+        Ok(measurements)
     }
 }
 
@@ -232,23 +263,26 @@ impl ShelterQueries {
     /// Get a `Shelter` by its `ID`.
     async fn shelter(
         &self,
+
         ctx: &Context<'_>,
 
         #[rustfmt::skip]
         #[graphql(desc = "The `ID` of the `Shelter` to fetch.")]
         id: Id,
     ) -> FieldResult<Option<Shelter>> {
-        let service = get_service(ctx);
+        // Parse shelter ID.
+        let shelter_id = id.get::<Shelter>().context("invalid shelter ID")?;
+
+        // Get service.
+        let (service, context) = get_service(ctx);
 
         // Request shelter from service.
         let shelter = {
-            let request = {
-                let shelter_id =
-                    id.get::<Shelter>().context("invalid shelter ID")?;
-                GetShelterRequest { shelter_id }
-            };
-            let response =
-                service.get_shelter(request).await.into_field_result()?;
+            let request = { GetShelterRequest { shelter_id } };
+            let response = service
+                .get_shelter(context, request)
+                .await
+                .into_field_result()?;
             response.shelter
         };
 
@@ -267,13 +301,13 @@ impl ShelterQueries {
     ) -> FieldResult<Option<Shelter>> {
         let slug = Slug::try_from(slug).context("invalid slug")?;
 
-        let service = get_service(ctx);
+        let (service, context) = get_service(ctx);
 
         // Request shelter from service.
         let shelter = {
             let request = GetShelterBySlugRequest { slug };
             let response = service
-                .get_shelter_by_slug(request)
+                .get_shelter_by_slug(context, request)
                 .await
                 .into_field_result()?;
             response.shelter
@@ -302,13 +336,15 @@ impl ShelterQueries {
         #[graphql(desc = "The number of initial `Shelter`s to skip.", default)]
         offset: u32,
     ) -> FieldResult<Vec<Shelter>> {
-        let service = get_service(ctx);
+        let (service, context) = get_service(ctx);
 
         // Request shelters from service.
         let shelters = {
             let request = ListSheltersRequest { limit, offset };
-            let response =
-                service.list_shelters(request).await.into_field_result()?;
+            let response = service
+                .list_shelters(context, request)
+                .await
+                .into_field_result()?;
             response.shelters
         };
 
@@ -389,20 +425,8 @@ impl ShelterMutations {
             tags,
         } = input;
 
-        // Get authenticated user.
-        let viewer = get_viewer(ctx)
-            .await
-            .context("failed to get authenticated user")
-            .into_field_result()?;
-
-        // Only admins can register shelters.
-        if !viewer.is_admin {
-            let error = FieldError::new("not authorized");
-            return Err(error);
-        }
-
         // Get service.
-        let service = get_service(ctx);
+        let (service, context) = get_service(ctx);
 
         // Create shelter in service.
         let shelter = {
@@ -453,8 +477,10 @@ impl ShelterMutations {
                     tags: tags.into_iter().map(Into::into).collect(),
                 }
             };
-            let response =
-                service.create_shelter(request).await.into_field_result()?;
+            let response = service
+                .create_shelter(context, request)
+                .await
+                .into_field_result()?;
             response.shelter
         };
 
@@ -493,19 +519,7 @@ impl ShelterMutations {
             .into_field_result()?;
 
         // Get service.
-        let service = get_service(ctx);
-
-        // Get authenticated user.
-        let viewer = get_viewer(ctx)
-            .await
-            .context("failed to get authenticated user")
-            .into_field_result()?;
-
-        // Only admins can update shelters.
-        if !viewer.is_admin {
-            let error = FieldError::new("not authorized");
-            return Err(error);
-        }
+        let (service, context) = get_service(ctx);
 
         // Update shelter in service.
         let shelter = {
@@ -565,8 +579,10 @@ impl ShelterMutations {
                     tags,
                 }
             };
-            let response =
-                service.update_shelter(request).await.into_field_result()?;
+            let response = service
+                .update_shelter(context, request)
+                .await
+                .into_field_result()?;
             response.shelter
         };
 
@@ -591,25 +607,16 @@ impl ShelterMutations {
             .context("invalid shelter ID")
             .into_field_result()?;
 
-        // Get authenticated user.
-        let viewer = get_viewer(ctx)
-            .await
-            .context("failed to get authenticated user")
-            .into_field_result()?;
-
-        // Only admins can delete shelters.
-        if !viewer.is_admin {
-            let error = FieldError::new("not authorized");
-            return Err(error);
-        }
-
         // Get service.
-        let service = get_service(ctx);
+        let (service, context) = get_service(ctx);
 
         // Delete shelter in service.
         {
             let request = DeleteShelterRequest { shelter_id };
-            service.delete_shelter(request).await.into_field_result()?;
+            service
+                .delete_shelter(context, request)
+                .await
+                .into_field_result()?;
         };
 
         // Respond with payload.
