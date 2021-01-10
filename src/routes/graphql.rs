@@ -34,12 +34,13 @@ where
     Q: ObjectType + Send + Sync + 'static,
     M: ObjectType + Send + Sync + 'static,
     S: SubscriptionType + Send + Sync + 'static,
-    V: Verifier,
+    V: Verifier + 'static,
 {
+    let graphql_runtime = runtime.clone();
     let graphql = graphql_filter(schema.clone())
-        .and(any().map(move || runtime.clone()))
+        .and(any().map(move || graphql_runtime.clone()))
         .and(any().map(move || service.clone()))
-        .and(with_auth(verifier))
+        .and(with_auth(runtime, verifier))
         .and_then(
             |(schema, request): (Schema<Q, M, S>, GraphQLRequest),
              runtime: Arc<Runtime>,
@@ -86,36 +87,44 @@ where
                     .map_err(|error| custom(RouteError::from(error)))
             },
         );
-    let subscription = graphql_subscription_filter(schema);
-    subscription.or(graphql)
+    let graphql_subscription = graphql_subscription_filter(schema);
+    graphql.or(graphql_subscription)
 }
 
-fn with_auth<V: Verifier>(
+fn with_auth<V: Verifier + 'static>(
+    runtime: Arc<Runtime>,
     verifier: Arc<V>,
 ) -> impl Filter<Extract = (Option<AuthInfo>,), Error = Rejection> + Clone {
-    header::<String>(
-        #[allow(clippy::borrow_interior_mutable_const)]
-        AUTHORIZATION.as_str(),
-    )
-    .map(move |token| (token, verifier.clone()))
-    .and_then(decode_auth_token)
+    any()
+        .map(move || runtime.clone())
+        .and(any().map(move || verifier.clone()))
+        .and(header::<String>(
+            #[allow(clippy::borrow_interior_mutable_const)]
+            AUTHORIZATION.as_str(),
+        ))
+        .and_then(decode_auth_token)
 }
 
-async fn decode_auth_token<V>(
-    (token, verifier): (Option<String>, Arc<V>),
-) -> Result<Option<AuthInfo>, Rejection>
-where
-    V: Verifier,
-{
+async fn decode_auth_token<V: Verifier + 'static>(
+    runtime: Arc<Runtime>,
+    verifier: Arc<V>,
+    token: Option<String>,
+) -> Result<Option<AuthInfo>, Rejection> {
+    let verifier = verifier.clone();
     let token = match token {
         Some(token) => token,
         None => return Ok(None),
     };
-    let info = verifier
-        .decode_token(&token)
+    let info = runtime
+        .spawn(async move {
+            verifier
+                .decode_token(&token)
+                .await
+                .context("failed to decode token")
+                .map_err(|error| custom(RouteError::from(error)))
+        })
         .await
-        .context("failed to decode token")
-        .map_err(|error| custom(RouteError::from(error)))?;
+        .unwrap()?;
     Ok(Some(info))
 }
 

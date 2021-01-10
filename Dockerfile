@@ -1,5 +1,5 @@
 # == BUILDER ==
-FROM ekidd/rust-musl-builder:1.48.0 AS builder
+FROM ekidd/rust-musl-builder:1.49.0 AS builder
 
 # Compile dependencies:
 WORKDIR /src

@@ -258,10 +258,10 @@ impl Service {
         };
 
         // Assert shelter is viewable.
-        if shelter.is_some() {
-            if !self.can_view_shelter(context, shelter_id).await? {
-                bail!("not authorized");
-            };
+        if shelter.is_some()
+            && !self.can_view_shelter(context, shelter_id).await?
+        {
+            bail!("not authorized");
         }
 
         let response = GetShelterResponse { shelter };

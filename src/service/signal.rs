@@ -275,10 +275,9 @@ impl Service {
         };
 
         // Assert signal is viewable.
-        if signal.is_some() {
-            if !self.can_view_signal(context, signal_id).await? {
-                bail!("not authorized");
-            }
+        if signal.is_some() && !self.can_view_signal(context, signal_id).await?
+        {
+            bail!("not authorized");
         }
 
         let response = GetSignalResponse { signal };

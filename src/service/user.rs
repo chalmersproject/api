@@ -160,10 +160,8 @@ impl Service {
         };
 
         // Assert user is viewable.
-        if user.is_some() {
-            if !self.can_view_user(context, user_id).await? {
-                bail!("not authorized");
-            };
+        if user.is_some() && !self.can_view_user(context, user_id).await? {
+            bail!("not authorized");
         }
 
         let response = GetUserResponse { user };

@@ -144,13 +144,12 @@ impl Service {
         };
 
         // Assert shelter is viewable.
-        if measurement.is_some() {
-            if !self
+        if measurement.is_some()
+            && !self
                 .can_view_shelter_measurement(context, measurement_id)
                 .await?
-            {
-                bail!("not authorized");
-            };
+        {
+            bail!("not authorized");
         }
 
         let response = GetShelterMeasurementResponse { measurement };
