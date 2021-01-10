@@ -44,6 +44,7 @@ tokio_compat = { package = "tokio-compat-02", version = "0.1" }
 url = "2"
 uuid = { version = "0.8", features = ["v4"] }
 warp = "0.2"
+openssl = "0.10"
 
 [dependencies.diesel]
 version = "1"

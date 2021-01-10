@@ -1,3 +1,6 @@
+// Workaround for: https://github.com/emk/rust-musl-builder/issues/69
+extern crate openssl;
+
 #[macro_use]
 extern crate diesel;
 
@@ -7,13 +10,18 @@ extern crate builder;
 extern crate derive;
 
 mod prelude {
-    pub use std::collections::{HashMap as Map, HashSet as Set};
-    pub use std::convert::{TryFrom, TryInto};
+    pub use std::fmt::Error as FmtError;
+    pub use std::fmt::Result as FmtResult;
     pub use std::fmt::{Display, Formatter};
-    pub use std::fmt::{Error as FmtError, Result as FmtResult};
+
+    pub use std::collections::HashMap as Map;
+    pub use std::collections::HashSet as Set;
+
+    pub use std::convert::{TryFrom, TryInto};
     pub use std::hash::{Hash, Hasher};
     pub use std::str::FromStr;
     pub use std::sync::{Arc, Mutex};
+    pub use std::time::Duration;
 
     pub use anyhow::Context as ResultContext;
     pub use anyhow::{bail, format_err, Error, Result};
@@ -31,9 +39,14 @@ mod prelude {
     pub use json::Number as JsonNumber;
     pub use json::Value as JsonValue;
 
+    pub use chrono::Duration as ChronoDuration;
+    pub use chrono::NaiveDate as Date;
+    pub use chrono::NaiveTime as Time;
+    pub use chrono::{Datelike, TimeZone, Utc};
+    pub type DateTime<Tz = Utc> = chrono::DateTime<Tz>;
+
     pub use async_trait::async_trait;
     pub use builder::Builder;
-    pub use chrono::{Datelike, Duration, NaiveDate as Date, TimeZone, Utc};
     pub use derive::*;
     pub use lazy_static::lazy_static;
     pub use log::{debug, error, info, trace, warn};
@@ -41,9 +54,6 @@ mod prelude {
     pub use serde::{Deserialize, Deserializer, Serialize, Serializer};
     pub use url::Url;
     pub use uuid::Uuid;
-
-    #[allow(dead_code)]
-    pub type DateTime<Tz = Utc> = chrono::DateTime<Tz>;
 }
 
 pub mod auth;

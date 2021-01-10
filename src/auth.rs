@@ -11,7 +11,7 @@ use request::Client;
 use tokio::sync::Mutex;
 
 lazy_static! {
-    static ref CLOCK_LEEWAY: Duration = Duration::seconds(30);
+    static ref CLOCK_LEEWAY: ChronoDuration = ChronoDuration::seconds(30);
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
@@ -145,10 +145,11 @@ impl FirebaseClient {
 
 impl FirebaseClient {
     async fn sync(&mut self) -> Result<()> {
-        let refresh_at = self.refresh_at - Duration::minutes(1);
+        let refresh_at = self.refresh_at - ChronoDuration::minutes(1);
         if Utc::now() <= refresh_at {
             return Ok(());
         }
+
         let response = self.client.get(FIREBASE_KEY_URL).send().await?;
 
         let cache_control = response
@@ -172,6 +173,7 @@ impl FirebaseClient {
             let key = DecodingKey::from_rsa_components(&n, &e).into_static();
             keys.insert(kid, key);
         }
+
         self.keys = keys;
         Ok(())
     }
