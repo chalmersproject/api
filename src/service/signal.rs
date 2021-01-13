@@ -370,8 +370,8 @@ impl Service {
     ) -> Result<GetSignalSecretResponse> {
         let GetSignalSecretRequest { signal_id } = request;
 
-        // Assert signal is viewable.
-        if !self.can_view_signal(context, signal_id).await? {
+        // Onluy permit internal access.
+        if !context.is_internal() {
             bail!("not authorized");
         }
 
