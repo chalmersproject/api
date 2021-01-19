@@ -1,9 +1,11 @@
 # == BUILDER ==
 FROM ekidd/rust-musl-builder:1.49.0 AS builder
 
+# Settings:
+ENV CMD=api
+
 # Compile dependencies:
 WORKDIR /src
-ENV CMD=api
 RUN sudo chown rust:rust ./ && \
     USER=rust cargo init --bin . && \
     mkdir -p src/bin/${CMD} && \
@@ -30,19 +32,25 @@ RUN cargo build --release --target x86_64-unknown-linux-musl && \
 # == RUNNER ==
 FROM alpine:3.12
 
+# Settings:
+ENV CMD=api
+ENV HOST=0.0.0.0
+ENV PORT=80
+
+# Environment
+ENV API_HOST=${HOST}
+ENV API_PORT=${PORT}
+
 # Install system dependencies:
 RUN apk add --update ca-certificates curl
 
 # Copy built binary:
-ENV CMD=api
 COPY --from=builder /out/${CMD} /usr/local/bin/${CMD}
 
-# Configure ports:
-ENV API_HOST=0.0.0.0
-ENV API_PORT=80
+# Configure networking:
 EXPOSE $API_PORT
 
 # Configure healthcheck and entrypoint:
-HEALTHCHECK --interval=10s --timeout=1s --start-period=5s --retries=3 CMD curl -f http://localhost || exit 1
+HEALTHCHECK --interval=10s --timeout=1s --start-period=5s --retries=3 CMD curl -f http://${HOST}:${PORT}/healthz || exit 1
 ENTRYPOINT ["api"]
 CMD ["serve"]
