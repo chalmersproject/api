@@ -490,6 +490,7 @@ impl Service {
                         pool.get().context("database connection failure")?;
                     measurements::table
                         .filter(measurements::signal_id.eq(signal_id))
+                        .order(measurements::created_at.desc())
                         .limit(limit.into())
                         .offset(offset.into())
                         .load(&conn)

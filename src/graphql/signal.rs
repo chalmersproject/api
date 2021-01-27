@@ -65,6 +65,37 @@ impl Signal {
         measure.into()
     }
 
+    async fn value(&self, ctx: &Context<'_>) -> FieldResult<Option<u16>> {
+        let (service, context) = get_service(ctx);
+
+        let measurements = {
+            let request = ListSignalMeasurementsRequest {
+                signal_id: self.0.id,
+                limit: 1,
+                offset: 0,
+            };
+            let response = service
+                .list_signal_measurements(context, request)
+                .await
+                .into_field_result()?;
+            response.measurements
+        };
+
+        let occupancy =
+            if let Some(measurement) = measurements.into_iter().next() {
+                measurement.occupancy
+            } else {
+                return Ok(None);
+            };
+
+        use ShelterMeasureRepr::*;
+        let value = match self.0.measure {
+            Spots => occupancy.spots,
+            Beds => occupancy.beds,
+        };
+        Ok(Some(value))
+    }
+
     async fn secret(&self, ctx: &Context<'_>) -> FieldResult<String> {
         let (service, context) = get_service(ctx);
 
