@@ -12,6 +12,7 @@ Try the currently deployed API playground at: https://api.chalmersproject.com
 > [the Rust language toolchain](https://rustup.rs),
 > [Docker](https://docs.docker.com/get-docker/), and
 > [Docker Compose](https://docs.docker.com/compose/install/).
+> libpq (on ubuntu ```sudo apt-get install libpq-dev```)
 
 ```bash
 # If you don't have a .env, scaffold one:
