@@ -27,6 +27,10 @@ impl ShelterMeasurement {
         let occupancy = self.0.occupancy.clone();
         occupancy.into()
     }
+
+    async fn timestamp(&self) -> &DateTime {
+        &self.0.created_at
+    }
 }
 
 #[derive(Debug, Clone, Hash)]
