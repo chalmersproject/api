@@ -4,6 +4,7 @@ use service::Slug;
 
 use service::Shelter as ShelterRepr;
 use service::ShelterFood as ShelterFoodRepr;
+use service::ShelterMeasurement as ShelterMeasurementRepr;
 use service::ShelterSpace as ShelterSpaceRepr;
 use service::ShelterTag as ShelterTagRepr;
 
@@ -14,6 +15,7 @@ use service::GetShelterRequest;
 use service::GetShelterSignalsRequest;
 use service::ListShelterMeasurementsRequest;
 use service::ListSheltersRequest;
+use service::ListSignalMeasurementsRequest;
 use service::UpdateShelterRequest;
 
 #[derive(Debug, Clone)]
@@ -78,9 +80,33 @@ impl Shelter {
         capacity.into()
     }
 
-    async fn occupancy(&self) -> ShelterSpace {
-        let occupancy = self.0.capacity.to_owned();
-        occupancy.into()
+    async fn occupancy(&self, ctx: &Context<'_>) -> FieldResult<ShelterSpace> {
+        let (service, context) = get_service(ctx);
+
+        let measurements = {
+            let context = context.internal();
+            let request = ListSignalMeasurementsRequest {
+                signal_id: self.0.id,
+                limit: 1,
+                offset: 0,
+            };
+            let response = service
+                .list_signal_measurements(&context, request)
+                .await
+                .into_field_result()?;
+            response.measurements
+        };
+        let measurement = measurements.into_iter().next();
+        let measurement = if let Some(measurement) = measurement {
+            measurement
+        } else {
+            let occupancy = ShelterSpace { beds: 0, spots: 0 };
+            return Ok(occupancy);
+        };
+
+        let ShelterMeasurementRepr { occupancy, .. } = measurement;
+        let occupancy: ShelterSpace = occupancy.into();
+        Ok(occupancy)
     }
 
     async fn food(&self) -> ShelterFood {
