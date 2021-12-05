@@ -1,13 +1,13 @@
-use crate::prelude::{debug as __debug, *};
-
+// use crate::prelude::{debug as __debug, *};
+use crate::prelude::*;
 use graphql::extensions::{Extension, ExtensionContext, ExtensionFactory};
 use graphql::{PathSegment, Request, ServerError, ServerResult};
 
-macro_rules! debug{
-    ($($arg:tt)+) => (
-        __debug!(target: "api::graphql", $($arg)+);
-    )
-}
+// macro_rules! debug{
+//     ($($arg:tt)+) => (
+//         __debug!(target: "api::graphql", $($arg)+);
+//     )
+// }
 
 pub struct Logging;
 

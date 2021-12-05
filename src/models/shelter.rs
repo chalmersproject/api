@@ -110,7 +110,7 @@ impl TryFrom<ShelterRepr> for Shelter {
         } = capacity;
 
         let (occupancy_spots, occupancy_beds) = match occupancy {
-            Some(ShelterSpace { beds, spots }) => (Some(beds), Some(spots)),
+            Some(ShelterSpace { spots, beds }) => (Some(spots), Some(beds)),
             None => (None, None),
         };
         let occupied_spots = occupancy_spots

@@ -28,7 +28,7 @@ graphql_warp = { package = "async-graphql-warp", version = "2" }
 http = "0.2"
 json = { package = "serde_json", version = "1" }
 jwt = { package = "jsonwebtoken", version = "7" }
-phonenumber = "0.3"
+phonenumber = "^0.3.1"
 plain = { package = "serde_plain", version = "0.3" }
 lazy_static = "1"
 log = "0.4"

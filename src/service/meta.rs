@@ -7,7 +7,6 @@ pub struct Meta {
 }
 
 impl Meta {
-    #[allow(clippy::clippy::new_without_default)]
     pub fn new() -> Self {
         let now = Utc::now();
         Self {
@@ -15,5 +14,11 @@ impl Meta {
             created_at: now,
             updated_at: now,
         }
+    }
+}
+
+impl Default for Meta {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -57,7 +57,7 @@ fn git_version() -> Result<String> {
 }
 
 fn fmt_version(version: String) -> String {
-    let trimmed = if let Some(version) = version.strip_prefix("v") {
+    let trimmed = if let Some(version) = version.strip_prefix('v') {
         version
     } else {
         return version;

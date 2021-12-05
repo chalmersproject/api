@@ -134,7 +134,7 @@ impl UserQueries {
         let user = {
             let request = GetUserRequest { user_id };
             let response = service
-                .get_user(&context, request)
+                .get_user(context, request)
                 .await
                 .into_field_result()?;
             response.user

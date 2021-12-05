@@ -313,10 +313,8 @@ impl Service {
         };
 
         // Assert profile is viewable.
-        if profile.is_some() {
-            if !self.can_view_signal_profile(context, signal_id).await? {
-                bail!("not authorized");
-            }
+        if profile.is_some() && !self.can_view_signal_profile(context, signal_id).await? {
+            bail!("not authorized");
         }
 
         let response = GetSignalProfileResponse { profile };
@@ -469,6 +467,7 @@ impl Service {
         context: &Context,
         request: ListSignalMeasurementsRequest,
     ) -> Result<ListSignalMeasurementsResponse> {
+        dbg!(&request);
         let ListSignalMeasurementsRequest {
             signal_id,
             limit,
@@ -576,6 +575,7 @@ impl Service {
         context: &Context,
         request: CreateSignalMeasurementRequest,
     ) -> Result<CreateSignalMeasurementResponse> {
+        dbg!(&request);
         let CreateSignalMeasurementRequest {
             signal_id,
             signal_secret,
@@ -615,6 +615,7 @@ impl Service {
         let capacity = shelter.capacity.to_owned();
         let occupancy = {
             let occupancy = shelter.occupancy.to_owned().unwrap_or_default();
+            dbg!(&occupancy);
             match signal.measure {
                 ShelterMeasure::Spots => ShelterSpace {
                     spots: measurement,
@@ -626,6 +627,7 @@ impl Service {
                 },
             }
         };
+        dbg!(&occupancy);
 
         // Mutate shelter occupancy.
         shelter.occupancy = Some(occupancy.clone());
