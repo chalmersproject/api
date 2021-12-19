@@ -1,7 +1,6 @@
 use super::prelude::*;
 
 use models::Shelter as ShelterModel;
-use models::ShelterMeasurement as ShelterMeasurementModel;
 use models::Signal as SignalModel;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,16 +114,6 @@ pub struct GetShelterSignalsResponse {
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct GetShelterMeasurementRequest {
-    pub measurement_id: Uuid,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GetShelterMeasurementResponse {
-    pub measurement: Option<ShelterMeasurement>,
-}
-
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct ListSheltersRequest {
     pub limit: u32,
     pub offset: u32,
@@ -135,17 +124,17 @@ pub struct ListSheltersResponse {
     pub shelters: Vec<Shelter>,
 }
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct ListShelterMeasurementsRequest {
-    pub shelter_id: Uuid,
-    pub limit: u32,
-    pub offset: u32,
-}
+// #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+// pub struct ListShelterMeasurementsRequest {
+//     pub shelter_id: Uuid,
+//     pub limit: u32,
+//     pub offset: u32,
+// }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ListShelterMeasurementsResponse {
-    pub measurements: Vec<ShelterMeasurement>,
-}
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct ListShelterMeasurementsResponse {
+//     pub measurements: Vec<ShelterMeasurement>,
+// }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateShelterRequest {
@@ -381,50 +370,50 @@ impl Service {
         Ok(response)
     }
 
-    pub async fn list_shelter_measurements(
-        &self,
-        context: &Context,
-        request: ListShelterMeasurementsRequest,
-    ) -> Result<ListShelterMeasurementsResponse> {
-        let ListShelterMeasurementsRequest {
-            shelter_id,
-            limit,
-            offset,
-        } = request;
+    // pub async fn list_shelter_measurements(
+    //     &self,
+    //     context: &Context,
+    //     request: ListShelterMeasurementsRequest,
+    // ) -> Result<ListShelterMeasurementsResponse> {
+    //     let ListShelterMeasurementsRequest {
+    //         shelter_id,
+    //         limit,
+    //         offset,
+    //     } = request;
 
-        // Assert shelter is viewable.
-        if !self.can_view_shelter(context, shelter_id).await? {
-            bail!("not authorized");
-        }
+    //     // Assert shelter is viewable.
+    //     if !self.can_view_shelter(context, shelter_id).await? {
+    //         bail!("not authorized");
+    //     }
 
-        // List measurements.
-        let measurements = {
-            let pool = self.db_pool.clone();
-            let models = spawn_blocking(
-                move || -> Result<Vec<ShelterMeasurementModel>> {
-                    use schema::shelter_measurements as measurements;
-                    let conn =
-                        pool.get().context("database connection failure")?;
-                    measurements::table
-                        .filter(measurements::shelter_id.eq(shelter_id))
-                        .limit(limit.into())
-                        .offset(offset.into())
-                        .load(&conn)
-                        .context("failed to load shelter measurement models")
-                },
-            )
-            .await
-            .unwrap()?;
-            models
-                .into_iter()
-                .map(ShelterMeasurement::try_from)
-                .collect::<Result<Vec<_>>>()
-                .context("failed to decode shelter measurement models")?
-        };
+    //     // List measurements.
+    //     let measurements = {
+    //         let pool = self.db_pool.clone();
+    //         let models = spawn_blocking(
+    //             move || -> Result<Vec<ShelterMeasurementModel>> {
+    //                 use schema::shelter_measurements as measurements;
+    //                 let conn =
+    //                     pool.get().context("database connection failure")?;
+    //                 measurements::table
+    //                     .filter(measurements::shelter_id.eq(shelter_id))
+    //                     .limit(limit.into())
+    //                     .offset(offset.into())
+    //                     .load(&conn)
+    //                     .context("failed to load shelter measurement models")
+    //             },
+    //         )
+    //         .await
+    //         .unwrap()?;
+    //         models
+    //             .into_iter()
+    //             .map(ShelterMeasurement::try_from)
+    //             .collect::<Result<Vec<_>>>()
+    //             .context("failed to decode shelter measurement models")?
+    //     };
 
-        let response = ListShelterMeasurementsResponse { measurements };
-        Ok(response)
-    }
+    //     let response = ListShelterMeasurementsResponse { measurements };
+    //     Ok(response)
+    // }
 
     pub async fn create_shelter(
         &self,

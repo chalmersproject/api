@@ -64,7 +64,7 @@ where
                             response.user
                         };
                         let viewer = match user {
-                            Some(user) => ContextViewer::User(user),
+                            Some(user) => ContextViewer::User(Box::new(user)),
                             None => ContextViewer::Anonymous,
                         };
                         context.viewer = Some(viewer);

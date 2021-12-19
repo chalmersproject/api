@@ -15,7 +15,6 @@ use service::GetShelterRequest;
 use service::GetShelterSignalsRequest;
 use service::ListShelterMeasurementsRequest;
 use service::ListSheltersRequest;
-use service::ListSignalMeasurementsRequest;
 use service::UpdateShelterRequest;
 
 #[derive(Debug, Clone)]
@@ -85,13 +84,13 @@ impl Shelter {
 
         let measurements = {
             let context = context.internal();
-            let request = ListSignalMeasurementsRequest {
-                signal_id: self.0.id,
+            let request = ListShelterMeasurementsRequest {
+                shelter_id: self.0.id,
                 limit: 1,
                 offset: 0,
             };
             let response = service
-                .list_signal_measurements(&context, request)
+                .list_shelter_measurements(&context, request)
                 .await
                 .into_field_result()?;
             response.measurements

@@ -9,7 +9,7 @@ pub struct Context {
 
 #[derive(Debug, Clone)]
 pub enum ContextViewer {
-    User(User),
+    User(Box<User>),
     Anonymous,
 }
 
@@ -31,7 +31,7 @@ impl Context {
 impl Context {
     pub fn viewing_user(&self) -> Option<&User> {
         self.viewer.as_ref().and_then(|viewer| match viewer {
-            ContextViewer::User(user) => Some(user),
+            ContextViewer::User(user) => Some(user.as_ref()),
             ContextViewer::Anonymous => None,
         })
     }
